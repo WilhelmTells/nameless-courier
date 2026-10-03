@@ -26,3 +26,23 @@ body {
   bottom: 8px;
   opacity: 0.6;
 }
+
+#charge {
+  position: absolute;
+  left: 50%;
+  bottom: 24px;
+  width: 160px;
+  height: 6px;
+  margin-left: -80px;
+  border: 1px solid rgba(200, 198, 192, 0.5);
+}
+
+#charge-fill {
+  width: 0;
+  height: 100%;
+  background: rgba(200, 198, 192, 0.6);
+}
+
+#charge.armed #charge-fill {
+  background: #f2f0ea;
+}

@@ -1,15 +1,31 @@
 import * as THREE from "three";
 import RAPIER from "@dimforge/rapier3d-compat";
+import { pogoConfig, SIM_HZ } from "./config.ts";
+import { advanceLoop } from "./core/loopCore.ts";
+import { stickAxis } from "./core/pogoCore.ts";
+import { initInput, readInput } from "./game/input.ts";
+import { Pogo } from "./game/pogo.ts";
+import { createPogoRig } from "./render/pogoRig.ts";
 import { VERSION } from "./version.ts";
 
-const FLOOR_SIZE = 200; // metres, large enough that its edge is lost in fog
-const GRID_SIZE = 60;
+const FLOOR_SIZE = 1000; // metres, large enough that its edge is lost in fog
+const GRID_SIZE = 200;
+const SIM_DT = 1 / SIM_HZ;
+const START = { x: 0, y: 0, z: 0 };
+
+// Follow camera (fixed facing until the orbit camera exists).
+const CAMERA_YAW = 0;
+const CAMERA_DISTANCE = 6.5;
+const CAMERA_HEIGHT = 2.2;
+const FOCUS_HEIGHT = 1.0; // look at this point above the tip
+const CAMERA_VERTICAL_LAG = 0.35; // s, smooths the bounce out of the view
 
 async function boot(): Promise<void> {
   document.querySelector<HTMLDivElement>("#version")!.textContent = VERSION;
 
   await RAPIER.init();
-  const physics = new RAPIER.World({ x: 0, y: -20, z: 0 });
+  const physics = new RAPIER.World({ x: 0, y: -pogoConfig.gravity, z: 0 });
+  physics.timestep = SIM_DT;
   physics.createCollider(
     RAPIER.ColliderDesc.cuboid(FLOOR_SIZE / 2, 0.5, FLOOR_SIZE / 2).setTranslation(0, -0.5, 0),
   );
@@ -24,8 +40,6 @@ async function boot(): Promise<void> {
   scene.fog = new THREE.Fog(fogColor, 15, 45);
 
   const camera = new THREE.PerspectiveCamera(60, 1, 0.1, 200);
-  camera.position.set(0, 3, 6.5);
-  camera.lookAt(0, 1, 0);
 
   scene.add(new THREE.HemisphereLight(0xd8d6d0, 0x3a3836, 1.2));
   const sun = new THREE.DirectionalLight(0xffffff, 1.5);
@@ -39,9 +53,23 @@ async function boot(): Promise<void> {
   floor.rotation.x = -Math.PI / 2;
   scene.add(floor);
 
-  const grid = new THREE.GridHelper(GRID_SIZE, GRID_SIZE, 0x55555a, 0x5f5f63);
+  const grid = new THREE.GridHelper(GRID_SIZE, GRID_SIZE, 0x505055, 0x5c5c60);
   grid.position.y = 0.001;
   scene.add(grid);
+
+  const pogo = new Pogo(START);
+  const rig = createPogoRig();
+  scene.add(rig);
+
+  const chargeFill = document.querySelector<HTMLDivElement>("#charge-fill")!;
+  const chargeBar = document.querySelector<HTMLDivElement>("#charge")!;
+
+  initInput();
+
+  if (new URLSearchParams(location.search).has("debug")) {
+    const { createDebugPanel } = await import("./ui/debugPanel.ts");
+    createDebugPanel(pogo, () => pogo.reset(START));
+  }
 
   function resize(): void {
     const w = window.innerWidth;
@@ -53,8 +81,54 @@ async function boot(): Promise<void> {
   window.addEventListener("resize", resize);
   resize();
 
-  renderer.setAnimationLoop(() => {
-    physics.step();
+  const up = new THREE.Vector3(0, 1, 0);
+  const axis = new THREE.Vector3();
+  const tip = new THREE.Vector3();
+  let focusY = FOCUS_HEIGHT;
+  let accumulator = 0;
+  let lastTime = performance.now();
+
+  renderer.setAnimationLoop((time: number) => {
+    const frameDt = (time - lastTime) / 1000;
+    lastTime = time;
+
+    const loop = advanceLoop(accumulator, frameDt, SIM_DT);
+    accumulator = loop.accumulator;
+    for (let i = 0; i < loop.steps; i++) {
+      pogo.step(readInput(), CAMERA_YAW, SIM_DT);
+      physics.step();
+    }
+
+    // Interpolate between the last two simulation states.
+    const a = loop.alpha;
+    tip.set(
+      pogo.prevPos.x + (pogo.pos.x - pogo.prevPos.x) * a,
+      pogo.prevPos.y + (pogo.pos.y - pogo.prevPos.y) * a,
+      pogo.prevPos.z + (pogo.pos.z - pogo.prevPos.z) * a,
+    );
+    const s = stickAxis({
+      x: pogo.prevLean.x + (pogo.lean.x - pogo.prevLean.x) * a,
+      z: pogo.prevLean.z + (pogo.lean.z - pogo.prevLean.z) * a,
+    });
+    rig.position.copy(tip);
+    rig.quaternion.setFromUnitVectors(up, axis.set(s.x, s.y, s.z));
+
+    // Squash and stretch on launch (visual only).
+    const sq = pogo.sinceLaunch < pogoConfig.squashTime ? Math.sin((Math.PI * pogo.sinceLaunch) / pogoConfig.squashTime) : 0;
+    rig.scale.set(1 + 0.08 * sq, 1 - 0.15 * sq, 1 + 0.08 * sq);
+
+    // Camera: horizontal follow is exact, vertical follow lags behind the bounce.
+    focusY += (tip.y + FOCUS_HEIGHT - focusY) * (1 - Math.exp(-Math.max(0, frameDt) / CAMERA_VERTICAL_LAG));
+    camera.position.set(
+      tip.x + Math.sin(CAMERA_YAW) * CAMERA_DISTANCE,
+      focusY + CAMERA_HEIGHT - FOCUS_HEIGHT,
+      tip.z + Math.cos(CAMERA_YAW) * CAMERA_DISTANCE,
+    );
+    camera.lookAt(tip.x, focusY, tip.z);
+
+    chargeFill.style.width = `${pogo.charge.charge * 100}%`;
+    chargeBar.classList.toggle("armed", pogo.charge.armed);
+
     renderer.render(scene, camera);
   });
 }
