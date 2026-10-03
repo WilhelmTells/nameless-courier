@@ -22,23 +22,29 @@ export interface PogoConfig {
   leanRate: number;
   /** How fast the lean returns to upright without input, degrees per second. */
   returnRate: number;
-  /** Fraction of incoming horizontal velocity kept on launch, 0–1. */
+  /** Fraction of incoming horizontal velocity kept on launch, 0–1 (momentum). */
   keepHorizontal: number;
+  /**
+   * Horizontal push from leaning on launch, as a multiple of launch speed ×
+   * sin(lean). Leaning against the current motion brakes.
+   */
+  leanPush: number;
   /** Length of the visual squash on launch, s. Does not affect physics. */
   squashTime: number;
 }
 
 export const DEFAULT_POGO: Readonly<PogoConfig> = {
-  gravity: 20,
-  idleHopApex: 0.4,
+  gravity: 24,
+  idleHopApex: 0.95,
   normalApex: 1.0,
-  chargedApex: 4.5,
+  chargedApex: 10,
   chargeTime: 1.2,
   chargeCurve: 1,
-  maxLean: 30,
-  leanRate: 180,
+  maxLean: 60,
+  leanRate: 210,
   returnRate: 240,
-  keepHorizontal: 0,
+  keepHorizontal: 0.6,
+  leanPush: 1,
   squashTime: 0.08,
 };
 

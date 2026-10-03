@@ -13,13 +13,14 @@ const RANGES: Record<keyof PogoConfig, Range> = {
   gravity: [5, 40, 0.5],
   idleHopApex: [0, 2, 0.05],
   normalApex: [0.2, 3, 0.05],
-  chargedApex: [1, 10, 0.1],
+  chargedApex: [1, 20, 0.1],
   chargeTime: [0.2, 3, 0.05],
   chargeCurve: [0.3, 3, 0.05],
-  maxLean: [5, 60, 1],
+  maxLean: [5, 80, 1],
   leanRate: [30, 720, 10],
   returnRate: [30, 720, 10],
-  keepHorizontal: [0, 1, 0.05],
+  keepHorizontal: [0, 0.95, 0.05],
+  leanPush: [0, 2, 0.05],
   squashTime: [0, 0.3, 0.01],
 };
 
@@ -27,7 +28,8 @@ const FOLDERS: [string, (keyof PogoConfig)[]][] = [
   ["Bounce", ["gravity", "idleHopApex", "normalApex", "chargedApex"]],
   ["Charge", ["chargeTime", "chargeCurve"]],
   ["Lean", ["maxLean", "leanRate", "returnRate"]],
-  ["Launch", ["keepHorizontal", "squashTime"]],
+  ["Momentum", ["keepHorizontal", "leanPush"]],
+  ["Visual", ["squashTime"]],
 ];
 
 function load(): void {
