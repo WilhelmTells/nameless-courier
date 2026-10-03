@@ -50,3 +50,57 @@ export const DEFAULT_POGO: Readonly<PogoConfig> = {
 
 /** Live values. The debug panel changes these while the game runs. */
 export const pogoConfig: PogoConfig = { ...DEFAULT_POGO };
+
+export interface CameraConfig {
+  /** Mouse look speed, radians per pixel of mouse movement. */
+  sensitivity: number;
+  /** Mouse up looks down when true. */
+  invertY: boolean;
+  /** Pitch: camera angle above the horizontal, degrees. */
+  pitchDefault: number;
+  pitchMin: number;
+  pitchMax: number;
+  /** Distance from the focus point, m. The mouse wheel zooms between min and max. */
+  distanceDefault: number;
+  distanceMin: number;
+  distanceMax: number;
+  /** Distance change per mouse wheel notch, m. */
+  zoomStep: number;
+  /** The camera looks at this point above the tip, m. */
+  focusHeight: number;
+  /** Time constant of the vertical follow, s. Smooths the bounce out of the view. */
+  verticalLag: number;
+  /** Radius of the sphere cast that pulls the camera in front of geometry, m. */
+  collisionRadius: number;
+  /** How fast the camera moves back out once geometry no longer blocks it, m/s. */
+  pushOutRate: number;
+  /** Fall depth below the flight's peak before the camera tilts down, m. */
+  fallTiltStart: number;
+  /** Extra downward tilt during long falls, degrees. */
+  fallTiltMax: number;
+  /** How fast the fall tilt eases in and out, degrees per second. */
+  fallTiltRate: number;
+}
+
+export const DEFAULT_CAMERA: Readonly<CameraConfig> = {
+  sensitivity: 0.0025,
+  invertY: false,
+  pitchDefault: 15,
+  pitchMin: -10,
+  pitchMax: 75,
+  distanceDefault: 6.5,
+  distanceMin: 4,
+  distanceMax: 10,
+  zoomStep: 0.6,
+  focusHeight: 1.0,
+  verticalLag: 0.35,
+  collisionRadius: 0.25,
+  pushOutRate: 6,
+  // Just above the charged jump apex, so only real falls tilt the view.
+  fallTiltStart: 11,
+  fallTiltMax: 20,
+  fallTiltRate: 40,
+};
+
+/** Live values. The debug panel changes these while the game runs. */
+export const cameraConfig: CameraConfig = { ...DEFAULT_CAMERA };
