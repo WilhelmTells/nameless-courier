@@ -1,0 +1,28 @@
+html,
+body {
+  margin: 0;
+  height: 100%;
+  overflow: hidden;
+  background: #1a1b1d;
+}
+
+#game {
+  display: block;
+  width: 100vw;
+  height: 100vh;
+}
+
+#hud {
+  position: fixed;
+  inset: 0;
+  pointer-events: none;
+  font: 12px/1.4 ui-monospace, "SF Mono", Menlo, Consolas, monospace;
+  color: #c8c6c0;
+}
+
+#version {
+  position: absolute;
+  right: 10px;
+  bottom: 8px;
+  opacity: 0.6;
+}

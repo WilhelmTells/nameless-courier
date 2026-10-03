@@ -1,0 +1,26 @@
+{
+  "name": "nameless-courier",
+  "private": true,
+  "version": "0.1.0-dev",
+  "description": "The Endless Journey of a Nameless Courier: a third-person pogo stick climbing game.",
+  "author": "",
+  "type": "module",
+  "engines": {
+    "node": ">=22.6"
+  },
+  "scripts": {
+    "dev": "vite",
+    "build": "tsc && vite build",
+    "preview": "vite preview",
+    "test": "node --experimental-strip-types --test tests/*.test.ts"
+  },
+  "dependencies": {
+    "@dimforge/rapier3d-compat": "^0.21.0",
+    "three": "^0.186.1"
+  },
+  "devDependencies": {
+    "@types/three": "^0.186.0",
+    "typescript": "~6.0.2",
+    "vite": "^8.3.2"
+  }
+}
