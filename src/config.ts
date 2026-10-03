@@ -31,6 +31,26 @@ export interface PogoConfig {
   leanPush: number;
   /** Length of the visual squash on launch, s. Does not affect physics. */
   squashTime: number;
+  /** Surfaces whose normal is more than this far from up are walls, degrees. */
+  wallAngle: number;
+  /** Largest angle between stick and surface normal for a bounce on floors and slopes, degrees. */
+  floorContactLimit: number;
+  /** Largest angle between stick and surface normal for a kick off a wall, degrees. */
+  wallContactLimit: number;
+  /** How far a slope turns the launch towards its normal, 0 (none) – 1 (fully). */
+  slopeBlend: number;
+  /** Apex of a wall kick as a fraction of the same bounce on a floor. */
+  wallKickFactor: number;
+  /** Share of the wall normal in the kick direction; the rest follows the stick. */
+  wallNormalBlend: number;
+  /** Bounciness of a bonk, 0–1. */
+  bonkRestitution: number;
+  /** Fraction of the speed along the surface kept in a bonk, 0–1. */
+  bonkKeep: number;
+  /** Slower impacts than this just slide instead of bonking, m/s. */
+  bonkMinSpeed: number;
+  /** Lean input is ignored for this long after a bonk, s. */
+  bonkLockTime: number;
 }
 
 export const DEFAULT_POGO: Readonly<PogoConfig> = {
@@ -46,6 +66,16 @@ export const DEFAULT_POGO: Readonly<PogoConfig> = {
   keepHorizontal: 0.6,
   leanPush: 1,
   squashTime: 0.08,
+  wallAngle: 60,
+  floorContactLimit: 65,
+  wallContactLimit: 50,
+  slopeBlend: 0.5,
+  wallKickFactor: 0.5,
+  wallNormalBlend: 0.3,
+  bonkRestitution: 0.1,
+  bonkKeep: 0.3,
+  bonkMinSpeed: 1,
+  bonkLockTime: 0.3,
 };
 
 /** Live values. The debug panel changes these while the game runs. */
