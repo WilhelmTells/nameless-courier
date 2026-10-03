@@ -22,8 +22,12 @@ export interface PogoConfig {
   leanRate: number;
   /** How fast the lean returns to upright without input, degrees per second. */
   returnRate: number;
-  /** Fraction of incoming horizontal velocity kept on launch, 0–1 (momentum). */
+  /** Fraction of incoming horizontal velocity kept on launch while steering, 0–1 (momentum). */
   keepHorizontal: number;
+  /** Fraction kept when no direction was pressed during the flight: lets the pogo come to rest. */
+  keepWithoutInput: number;
+  /** A lean pressed during a flight is held until the next contact instead of easing back. */
+  holdLeanInAir: boolean;
   /**
    * Horizontal push from leaning on launch, as a multiple of launch speed ×
    * sin(lean). Leaning against the current motion brakes.
@@ -70,6 +74,8 @@ export const DEFAULT_POGO: Readonly<PogoConfig> = {
   leanRate: 210,
   returnRate: 240,
   keepHorizontal: 0.6,
+  keepWithoutInput: 0.2,
+  holdLeanInAir: true,
   leanPush: 1,
   squashTime: 0.08,
   wallAngle: 60,

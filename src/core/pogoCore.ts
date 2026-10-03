@@ -147,6 +147,14 @@ export function launchVelocity(
   };
 }
 
+/**
+ * Share of horizontal speed kept on launch: full momentum while the player
+ * steers, much less when no direction was pressed, so letting go brakes.
+ */
+export function momentumKeep(steering: boolean, cfg: Pick<PogoConfig, "keepHorizontal" | "keepWithoutInput">): number {
+  return steering ? cfg.keepHorizontal : cfg.keepWithoutInput;
+}
+
 /** Exact ballistic motion over `dt` under gravity. */
 export function stepBallistic(pos: Vec3, vel: Vec3, gravity: number, dt: number): { pos: Vec3; vel: Vec3 } {
   return {

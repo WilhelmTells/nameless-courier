@@ -9,6 +9,7 @@ import {
   launchSpeed,
   launchVelocity,
   leanTarget,
+  momentumKeep,
   NO_CHARGE,
   resolveBounce,
   stepBallistic,
@@ -101,6 +102,8 @@ export class Pogo {
   private launchY: number;
   /** Time left during which lean input is ignored after a bonk, s. */
   private bonkLock = 0;
+  /** A direction was pressed since the last launch (or is pressed now). */
+  private steering = false;
 
   private world: RAPIER.World;
 
@@ -122,6 +125,7 @@ export class Pogo {
     this.moveDir = { x: 0, z: 0 };
     this.bonkLock = 0;
     this.lastContact = null;
+    this.steering = false;
   }
 
   step(input: PogoInput, cameraYaw: number, dt: number): void {
@@ -132,7 +136,10 @@ export class Pogo {
     const locked = this.bonkLock > 0;
     const hasLean = !locked && (input.lean.x !== 0 || input.lean.z !== 0);
     const target = hasLean ? leanTarget(input.lean, cameraYaw, cfg.maxLean) : NO_LEAN;
-    const lean = stepLean(this.lean, target, hasLean, dt, cfg);
+    if (hasLean) this.steering = true;
+    // A lean pressed in this flight is held until the next contact.
+    const hold = !hasLean && cfg.holdLeanInAir && this.steering;
+    const lean = hold ? this.lean : stepLean(this.lean, target, hasLean, dt, cfg);
     // The stick cannot turn into geometry; it stays put unless it is already stuck in it.
     if (!this.overlaps(lean) || this.overlaps(this.lean)) this.lean = lean;
     this.charge = stepCharge(this.charge, input.charge, dt, cfg);
@@ -183,6 +190,7 @@ export class Pogo {
       this.vel = bonk.vel;
       if (bonk.hard) {
         this.bonkLock = cfg.bonkLockTime;
+        this.steering = false;
         this.lastContact = { kind: "bonk", angle: angleBetween(stick, n) };
       }
       planes.push(n);
@@ -195,10 +203,12 @@ export class Pogo {
     const carried = kind === "floor" ? carriedApex(this.peakY - this.pos.y, cfg) : 0;
     const bounce = resolveBounce(this.charge, cfg, carried);
     this.charge = bounce.charge;
+    const keep = { ...cfg, keepHorizontal: momentumKeep(this.steering, cfg) };
+    this.steering = false;
     if (kind === "wall") {
-      this.vel = wallKick(stick, normal, bounce.apex, this.vel, cfg);
+      this.vel = wallKick(stick, normal, bounce.apex, this.vel, keep);
     } else {
-      const flat = launchVelocity(this.lean, launchSpeed(bounce.apex, cfg.gravity), this.vel, cfg);
+      const flat = launchVelocity(this.lean, launchSpeed(bounce.apex, cfg.gravity), this.vel, keep);
       this.vel = slopeLaunch(flat, normal, cfg.slopeBlend);
     }
     this.lastContact = { kind, angle: angleBetween(stick, normal) };

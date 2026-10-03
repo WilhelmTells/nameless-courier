@@ -7,6 +7,7 @@ import {
   launchSpeed,
   launchVelocity,
   leanTarget,
+  momentumKeep,
   NO_CHARGE,
   resolveBounce,
   stepBallistic,
@@ -161,4 +162,10 @@ test("holding Space absorbs the carried bounce; an armed jump goes at least as h
   const armed: ChargeState = { charge: 0.1, armed: true, held: false };
   assert.equal(resolveBounce(armed, cfg, 5).apex, 5);
   near(resolveBounce({ charge: 1, armed: true, held: false }, cfg, 5).apex, cfg.chargedApex);
+});
+
+test("letting go of the keys brakes: less momentum is kept without steering", () => {
+  assert.equal(momentumKeep(true, cfg), cfg.keepHorizontal);
+  assert.equal(momentumKeep(false, cfg), cfg.keepWithoutInput);
+  assert.ok(cfg.keepWithoutInput < cfg.keepHorizontal);
 });
