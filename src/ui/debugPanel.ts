@@ -33,12 +33,24 @@ const POGO: ConfigGroup<PogoConfig> = {
     keepHorizontal: [0, 0.95, 0.05],
     leanPush: [0, 2, 0.05],
     squashTime: [0, 0.3, 0.01],
+    wallAngle: [30, 89, 1],
+    floorContactLimit: [20, 90, 1],
+    wallContactLimit: [10, 90, 1],
+    slopeBlend: [0, 1, 0.05],
+    wallKickFactor: [0, 1.5, 0.05],
+    wallNormalBlend: [0, 1, 0.05],
+    bonkRestitution: [0, 1, 0.05],
+    bonkKeep: [0, 1, 0.05],
+    bonkMinSpeed: [0, 5, 0.1],
+    bonkLockTime: [0, 1, 0.05],
   },
   folders: [
     ["Bounce", ["gravity", "idleHopApex", "normalApex", "chargedApex"]],
     ["Charge", ["chargeTime", "chargeCurve"]],
     ["Lean", ["maxLean", "leanRate", "returnRate"]],
     ["Momentum", ["keepHorizontal", "leanPush"]],
+    ["Walls & slopes", ["wallAngle", "floorContactLimit", "wallContactLimit", "slopeBlend", "wallKickFactor", "wallNormalBlend"]],
+    ["Bonk", ["bonkRestitution", "bonkKeep", "bonkMinSpeed", "bonkLockTime"]],
     ["Visual", ["squashTime"]],
   ],
 };
@@ -103,7 +115,7 @@ function addGroup<T extends object>(gui: GUI, group: ConfigGroup<T>): void {
 export function createDebugPanel(pogo: Pogo, resetPosition: () => void): void {
   const gui = new GUI({ title: "Debug" });
 
-  const readout = { height: "", speed: "", charge: "", lastApex: "" };
+  const readout = { height: "", speed: "", charge: "", lastApex: "", contact: "" };
   const live = gui.addFolder("Readout");
   for (const key of Object.keys(readout) as (keyof typeof readout)[]) live.add(readout, key).disable().listen();
   const update = () => {
@@ -111,6 +123,8 @@ export function createDebugPanel(pogo: Pogo, resetPosition: () => void): void {
     readout.speed = `${Math.hypot(pogo.vel.x, pogo.vel.z).toFixed(2)} m/s horiz.`;
     readout.charge = `${pogo.charge.charge.toFixed(2)}${pogo.charge.armed ? " armed" : ""}`;
     readout.lastApex = `${pogo.lastApex.toFixed(2)} m`;
+    const c = pogo.lastContact;
+    readout.contact = c ? `${c.kind}, ${c.angle.toFixed(0)}° to normal` : "none";
     requestAnimationFrame(update);
   };
   update();
