@@ -28,6 +28,8 @@ const MOVE_DIR_MIN_SPEED = 0.5;
 const SKIN = 0.002;
 /** Most contacts resolved in one simulation step. */
 const MAX_CONTACTS_PER_STEP = 4;
+/** Spawn height above the start point, m: starting in contact gives an unreliable first contact normal. */
+const SPAWN_LIFT = 0.01;
 const NO_LEAN: Vec2 = { x: 0, z: 0 };
 
 /** A collision shape along the stick, `offset` metres from the tip to its centre. */
@@ -109,14 +111,14 @@ export class Pogo {
 
   constructor(start: Vec3, world: RAPIER.World) {
     this.world = world;
-    this.pos = { ...start };
-    this.prevPos = { ...start };
+    this.pos = { ...start, y: start.y + SPAWN_LIFT };
+    this.prevPos = { ...this.pos };
     this.peakY = this.launchY = start.y;
   }
 
   reset(start: Vec3): void {
-    this.pos = { ...start };
-    this.prevPos = { ...start };
+    this.pos = { ...start, y: start.y + SPAWN_LIFT };
+    this.prevPos = { ...this.pos };
     this.vel = { x: 0, y: 0, z: 0 };
     this.lean = { x: 0, z: 0 };
     this.prevLean = { x: 0, z: 0 };

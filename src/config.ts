@@ -64,14 +64,14 @@ export interface PogoConfig {
 }
 
 export const DEFAULT_POGO: Readonly<PogoConfig> = {
-  gravity: 24,
+  gravity: 18,
   idleHopApex: 0.95,
   normalApex: 1.0,
   chargedApex: 10,
   chargeTime: 1.2,
   chargeCurve: 1,
   maxLean: 60,
-  leanRate: 210,
+  leanRate: 130,
   returnRate: 240,
   keepHorizontal: 0.6,
   keepWithoutInput: 0.2,
