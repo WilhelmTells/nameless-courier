@@ -98,14 +98,31 @@ test("charged apex interpolates by charge and curve", () => {
 });
 
 test("launch velocity discards incoming vertical and keeps a fraction of horizontal", () => {
-  const v = launchVelocity({ x: 0, y: 1, z: 0 }, 5, { x: 2, y: -9, z: -4 }, 0.5);
+  const v = launchVelocity({ x: 0, z: 0 }, 5, { x: 2, y: -9, z: -4 }, { keepHorizontal: 0.5, leanPush: 1 });
   assert.deepEqual(v, { x: 1, y: 5, z: -2 });
+});
+
+test("leaning pushes horizontally without lowering the bounce", () => {
+  const v = launchVelocity({ x: 30, z: 0 }, 10, { x: 0, y: 0, z: 0 }, { keepHorizontal: 0, leanPush: 1 });
+  near(v.y, 10);
+  near(v.x, 5);
+  near(v.z, 0);
+});
+
+test("momentum builds to a top speed and counter-lean brakes", () => {
+  const m = { keepHorizontal: 0.6, leanPush: 1 };
+  let vel: Vec3 = { x: 0, y: 0, z: 0 };
+  for (let i = 0; i < 50; i++) vel = launchVelocity({ x: 30, z: 0 }, 10, vel, m);
+  // Steady state: push / (1 - keep) = 5 / 0.4.
+  near(vel.x, 12.5, 1e-6);
+  const braked = launchVelocity({ x: -30, z: 0 }, 10, vel, m);
+  near(braked.x, 12.5 * 0.6 - 5);
 });
 
 test("a simulated normal bounce peaks at the configured apex", () => {
   // Bounce on a floor at y = 0 several times and record each peak.
   let pos: Vec3 = { x: 0, y: 0, z: 0 };
-  let vel = launchVelocity(stickAxis({ x: 0, z: 0 }), launchSpeed(cfg.normalApex, cfg.gravity), pos, 0);
+  let vel = launchVelocity({ x: 0, z: 0 }, launchSpeed(cfg.normalApex, cfg.gravity), pos, cfg);
   let peak = 0;
   const peaks: number[] = [];
   for (let i = 0; i < SIM_HZ * 3; i++) {
@@ -113,7 +130,7 @@ test("a simulated normal bounce peaks at the configured apex", () => {
     peak = Math.max(peak, pos.y);
     if (pos.y <= 0 && vel.y < 0) {
       pos = { ...pos, y: 0 };
-      vel = launchVelocity(stickAxis({ x: 0, z: 0 }), launchSpeed(cfg.normalApex, cfg.gravity), vel, 0);
+      vel = launchVelocity({ x: 0, z: 0 }, launchSpeed(cfg.normalApex, cfg.gravity), vel, cfg);
       peaks.push(peak);
       peak = 0;
     }

@@ -10,7 +10,6 @@ import {
   stepBallistic,
   stepCharge,
   stepLean,
-  stickAxis,
   type ChargeState,
   type Vec2,
   type Vec3,
@@ -73,12 +72,7 @@ export class Pogo {
       this.pos = { ...this.pos, y: FLOOR_Y };
       const bounce = resolveBounce(this.charge, cfg);
       this.charge = bounce.charge;
-      this.vel = launchVelocity(
-        stickAxis(this.lean),
-        launchSpeed(bounce.apex, cfg.gravity),
-        this.vel,
-        cfg.keepHorizontal,
-      );
+      this.vel = launchVelocity(this.lean, launchSpeed(bounce.apex, cfg.gravity), this.vel, cfg);
       this.lastApex = this.peak;
       this.peak = 0;
       this.sinceLaunch = 0;

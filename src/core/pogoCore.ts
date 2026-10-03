@@ -119,14 +119,23 @@ export function resolveBounce(
 }
 
 /**
- * Launch velocity: launch speed along the stick axis, plus the kept fraction of
- * the incoming horizontal velocity. Incoming vertical velocity is discarded.
+ * Launch velocity. Vertical: the full launch speed, so leaning does not lower
+ * the bounce. Horizontal: a push of launch speed × sin(lean) × leanPush in the
+ * lean direction, plus the kept fraction of the incoming horizontal velocity
+ * (momentum). Incoming vertical velocity is discarded.
  */
-export function launchVelocity(axis: Vec3, speed: number, incoming: Vec3, keepHorizontal: number): Vec3 {
+export function launchVelocity(
+  lean: Vec2,
+  speed: number,
+  incoming: Vec3,
+  cfg: Pick<PogoConfig, "keepHorizontal" | "leanPush">,
+): Vec3 {
+  const angle = Math.hypot(lean.x, lean.z);
+  const push = angle === 0 ? 0 : (speed * Math.sin(angle * DEG) * cfg.leanPush) / angle;
   return {
-    x: axis.x * speed + incoming.x * keepHorizontal,
-    y: axis.y * speed,
-    z: axis.z * speed + incoming.z * keepHorizontal,
+    x: lean.x * push + incoming.x * cfg.keepHorizontal,
+    y: speed,
+    z: lean.z * push + incoming.z * cfg.keepHorizontal,
   };
 }
 
