@@ -59,7 +59,7 @@ async function boot(): Promise<void> {
   // against the level before the first simulation step.
   physics.step();
 
-  const pogo = new Pogo(START);
+  const pogo = new Pogo(START, physics);
   const rig = createPogoRig();
   scene.add(rig);
 

@@ -53,10 +53,11 @@ const pieces: Piece[] = [
   piece("pole-4", "cylinder", -12, 0, -9, 0.6, 2.5, 0.6),
   piece("pole-5", "cylinder", -12, 0, -11, 0.6, 3, 0.6),
 
-  // Low tunnel, 2.5 m clear height, behind the start.
-  box("tunnel-left", -1.75, 0, 8, 0.5, 2.5, 6),
-  box("tunnel-right", 1.75, 0, 8, 0.5, 2.5, 6),
-  box("tunnel-roof", 0, 2.5, 8, 4, 0.4, 6),
+  // Low tunnel, behind the start: 3 m clear height fits normal bounces
+  // (rider height 1.75 m + 1 m apex), charged jumps hit the roof.
+  box("tunnel-left", -1.75, 0, 8, 0.5, 3, 6),
+  box("tunnel-right", 1.75, 0, 8, 0.5, 3, 6),
+  box("tunnel-roof", 0, 3, 8, 4, 0.4, 6),
 
   // Overhang: a 3 m high platform sticking out past its pillar, behind left.
   box("overhang-pillar", -8, 0, 9, 1, 3, 1),
