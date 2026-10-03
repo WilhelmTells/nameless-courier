@@ -1,0 +1,14 @@
+# Internal documentation and tooling — never commit
+concept.md
+CLAUDE.md
+CLAUDE.local.md
+AGENTS.md
+.claude/
+.mcp.json
+internal/
+
+# Build and system files
+node_modules/
+dist/
+.DS_Store
+*.local
