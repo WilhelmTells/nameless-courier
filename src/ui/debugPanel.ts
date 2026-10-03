@@ -1,58 +1,106 @@
-// Development panel, only loaded with ?debug: live sliders for every pogo
-// value and readouts of the simulation.
+// Development panel, only loaded with ?debug: live sliders for every pogo and
+// camera value and readouts of the simulation.
 
 import GUI from "lil-gui";
-import { DEFAULT_POGO, pogoConfig, type PogoConfig } from "../config.ts";
+import { cameraConfig, DEFAULT_CAMERA, DEFAULT_POGO, pogoConfig, type CameraConfig, type PogoConfig } from "../config.ts";
 import type { Pogo } from "../game/pogo.ts";
-
-const STORAGE_KEY = "courier.debugConfig";
 
 type Range = [min: number, max: number, step: number];
 
-const RANGES: Record<keyof PogoConfig, Range> = {
-  gravity: [5, 40, 0.5],
-  idleHopApex: [0, 2, 0.05],
-  normalApex: [0.2, 3, 0.05],
-  chargedApex: [1, 20, 0.1],
-  chargeTime: [0.2, 3, 0.05],
-  chargeCurve: [0.3, 3, 0.05],
-  maxLean: [5, 80, 1],
-  leanRate: [30, 720, 10],
-  returnRate: [30, 720, 10],
-  keepHorizontal: [0, 0.95, 0.05],
-  leanPush: [0, 2, 0.05],
-  squashTime: [0, 0.3, 0.01],
+interface ConfigGroup<T extends object> {
+  storageKey: string;
+  live: T;
+  defaults: Readonly<T>;
+  /** Slider ranges for numeric values; booleans get a checkbox. */
+  ranges: Partial<Record<keyof T, Range>>;
+  folders: [string, (keyof T)[]][];
+}
+
+const POGO: ConfigGroup<PogoConfig> = {
+  storageKey: "courier.debugConfig",
+  live: pogoConfig,
+  defaults: DEFAULT_POGO,
+  ranges: {
+    gravity: [5, 40, 0.5],
+    idleHopApex: [0, 2, 0.05],
+    normalApex: [0.2, 3, 0.05],
+    chargedApex: [1, 20, 0.1],
+    chargeTime: [0.2, 3, 0.05],
+    chargeCurve: [0.3, 3, 0.05],
+    maxLean: [5, 80, 1],
+    leanRate: [30, 720, 10],
+    returnRate: [30, 720, 10],
+    keepHorizontal: [0, 0.95, 0.05],
+    leanPush: [0, 2, 0.05],
+    squashTime: [0, 0.3, 0.01],
+  },
+  folders: [
+    ["Bounce", ["gravity", "idleHopApex", "normalApex", "chargedApex"]],
+    ["Charge", ["chargeTime", "chargeCurve"]],
+    ["Lean", ["maxLean", "leanRate", "returnRate"]],
+    ["Momentum", ["keepHorizontal", "leanPush"]],
+    ["Visual", ["squashTime"]],
+  ],
 };
 
-const FOLDERS: [string, (keyof PogoConfig)[]][] = [
-  ["Bounce", ["gravity", "idleHopApex", "normalApex", "chargedApex"]],
-  ["Charge", ["chargeTime", "chargeCurve"]],
-  ["Lean", ["maxLean", "leanRate", "returnRate"]],
-  ["Momentum", ["keepHorizontal", "leanPush"]],
-  ["Visual", ["squashTime"]],
-];
+const CAMERA: ConfigGroup<CameraConfig> = {
+  storageKey: "courier.debugCamera",
+  live: cameraConfig,
+  defaults: DEFAULT_CAMERA,
+  ranges: {
+    sensitivity: [0.0005, 0.01, 0.0001],
+    pitchMin: [-45, 0, 1],
+    pitchMax: [30, 89, 1],
+    distanceMin: [1, 10, 0.1],
+    distanceMax: [4, 30, 0.1],
+    zoomStep: [0.1, 2, 0.1],
+    focusHeight: [0, 3, 0.05],
+    verticalLag: [0, 1.5, 0.01],
+    collisionRadius: [0.05, 1, 0.05],
+    pushOutRate: [0.5, 30, 0.5],
+    markerViewAngle: [5, 30, 1],
+    tiltRate: [10, 360, 5],
+  },
+  folders: [
+    ["Camera: mouse", ["sensitivity", "invertY", "pitchMin", "pitchMax"]],
+    ["Camera: distance", ["distanceMin", "distanceMax", "zoomStep", "collisionRadius", "pushOutRate"]],
+    ["Camera: follow", ["focusHeight", "verticalLag", "markerViewAngle", "tiltRate"]],
+  ],
+};
 
-function load(): void {
+function load<T extends object>(group: ConfigGroup<T>): void {
   try {
-    const saved = JSON.parse(localStorage.getItem(STORAGE_KEY) ?? "{}") as Partial<PogoConfig>;
-    for (const key of Object.keys(DEFAULT_POGO) as (keyof PogoConfig)[]) {
-      if (typeof saved[key] === "number") pogoConfig[key] = saved[key];
+    const saved = JSON.parse(localStorage.getItem(group.storageKey) ?? "{}") as Partial<T>;
+    for (const key of Object.keys(group.defaults) as (keyof T)[]) {
+      if (typeof saved[key] === typeof group.defaults[key]) group.live[key] = saved[key] as T[keyof T];
     }
   } catch {
     // Storage unavailable or corrupt: keep the defaults.
   }
 }
 
-function save(): void {
+function save<T extends object>(group: ConfigGroup<T>): void {
   try {
-    localStorage.setItem(STORAGE_KEY, JSON.stringify(pogoConfig));
+    localStorage.setItem(group.storageKey, JSON.stringify(group.live));
   } catch {
     // Storage unavailable: values last until reload.
   }
 }
 
+function addGroup<T extends object>(gui: GUI, group: ConfigGroup<T>): void {
+  load(group);
+  for (const [name, keys] of group.folders) {
+    const folder = gui.addFolder(name);
+    for (const key of keys) {
+      const range = group.ranges[key];
+      const c = range ? folder.add(group.live, key, ...range) : folder.add(group.live, key);
+      c.onChange(() => save(group));
+    }
+    if (name.startsWith("Camera")) folder.close();
+  }
+}
+
 export function createDebugPanel(pogo: Pogo, resetPosition: () => void): void {
-  load();
   const gui = new GUI({ title: "Debug" });
 
   const readout = { height: "", speed: "", charge: "", lastApex: "" };
@@ -67,20 +115,18 @@ export function createDebugPanel(pogo: Pogo, resetPosition: () => void): void {
   };
   update();
 
-  for (const [name, keys] of FOLDERS) {
-    const folder = gui.addFolder(name);
-    for (const key of keys) {
-      const [min, max, step] = RANGES[key];
-      folder.add(pogoConfig, key, min, max, step).onChange(save);
-    }
-  }
+  addGroup(gui, POGO);
+  addGroup(gui, CAMERA);
 
   const actions = {
-    copyValues: () => navigator.clipboard?.writeText(JSON.stringify(pogoConfig, null, 2)),
+    copyValues: () =>
+      navigator.clipboard?.writeText(JSON.stringify({ pogo: pogoConfig, camera: cameraConfig }, null, 2)),
     resetValues: () => {
       Object.assign(pogoConfig, DEFAULT_POGO);
+      Object.assign(cameraConfig, DEFAULT_CAMERA);
       gui.controllersRecursive().forEach((c) => c.updateDisplay());
-      save();
+      save(POGO);
+      save(CAMERA);
     },
     resetPosition,
   };

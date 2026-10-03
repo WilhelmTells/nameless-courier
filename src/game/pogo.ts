@@ -18,6 +18,8 @@ import type { PogoInput } from "./input.ts";
 
 /** Height of the flat test floor. Replaced by collision queries later. */
 const FLOOR_Y = 0;
+/** Slowest horizontal speed that still counts as movement for recentering, m/s. */
+const MOVE_DIR_MIN_SPEED = 0.5;
 
 export class Pogo {
   /** Position of the stick's tip, m. */
@@ -30,6 +32,8 @@ export class Pogo {
   sinceLaunch = Infinity;
   /** Peak height above the floor of the last completed bounce, m. */
   lastApex = 0;
+  /** Last horizontal movement direction (unit vector, or zero before any movement). */
+  moveDir: Vec2 = { x: 0, z: 0 };
 
   /** State before the last step, for render interpolation. */
   prevPos: Vec3;
@@ -50,6 +54,7 @@ export class Pogo {
     this.prevLean = { x: 0, z: 0 };
     this.charge = { ...NO_CHARGE };
     this.peak = 0;
+    this.moveDir = { x: 0, z: 0 };
   }
 
   step(input: PogoInput, cameraYaw: number, dt: number): void {
@@ -66,6 +71,8 @@ export class Pogo {
     this.vel = next.vel;
     this.sinceLaunch += dt;
     this.peak = Math.max(this.peak, this.pos.y - FLOOR_Y);
+    const hSpeed = Math.hypot(this.vel.x, this.vel.z);
+    if (hSpeed > MOVE_DIR_MIN_SPEED) this.moveDir = { x: this.vel.x / hSpeed, z: this.vel.z / hSpeed };
 
     // Tip contact with the floor: launch along the stick.
     if (this.pos.y <= FLOOR_Y && this.vel.y < 0) {

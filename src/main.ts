@@ -3,7 +3,9 @@ import RAPIER from "@dimforge/rapier3d-compat";
 import { pogoConfig, SIM_HZ } from "./config.ts";
 import { advanceLoop } from "./core/loopCore.ts";
 import { stickAxis } from "./core/pogoCore.ts";
+import { OrbitCamera } from "./game/camera.ts";
 import { initInput, readInput } from "./game/input.ts";
+import { LandingMarker } from "./game/landingMarker.ts";
 import { Pogo } from "./game/pogo.ts";
 import { createPogoRig } from "./render/pogoRig.ts";
 import { VERSION } from "./version.ts";
@@ -12,13 +14,6 @@ const FLOOR_SIZE = 1000; // metres, large enough that its edge is lost in fog
 const GRID_SIZE = 200;
 const SIM_DT = 1 / SIM_HZ;
 const START = { x: 0, y: 0, z: 0 };
-
-// Follow camera (fixed facing until the orbit camera exists).
-const CAMERA_YAW = 0;
-const CAMERA_DISTANCE = 6.5;
-const CAMERA_HEIGHT = 2.2;
-const FOCUS_HEIGHT = 1.0; // look at this point above the tip
-const CAMERA_VERTICAL_LAG = 0.35; // s, smooths the bounce out of the view
 
 async function boot(): Promise<void> {
   document.querySelector<HTMLDivElement>("#version")!.textContent = VERSION;
@@ -29,6 +24,9 @@ async function boot(): Promise<void> {
   physics.createCollider(
     RAPIER.ColliderDesc.cuboid(FLOOR_SIZE / 2, 0.5, FLOOR_SIZE / 2).setTranslation(0, -0.5, 0),
   );
+  // Build the query structures once, so the camera and marker can cast against
+  // the floor before the first simulation step.
+  physics.step();
 
   const canvas = document.querySelector<HTMLCanvasElement>("#game")!;
   const renderer = new THREE.WebGLRenderer({ canvas, antialias: true });
@@ -39,7 +37,8 @@ async function boot(): Promise<void> {
   scene.background = fogColor;
   scene.fog = new THREE.Fog(fogColor, 15, 45);
 
-  const camera = new THREE.PerspectiveCamera(60, 1, 0.1, 200);
+  const orbit = new OrbitCamera(new THREE.PerspectiveCamera(60, 1, 0.1, 200), canvas, physics);
+  const camera = orbit.camera;
 
   scene.add(new THREE.HemisphereLight(0xd8d6d0, 0x3a3836, 1.2));
   const sun = new THREE.DirectionalLight(0xffffff, 1.5);
@@ -60,6 +59,9 @@ async function boot(): Promise<void> {
   const pogo = new Pogo(START);
   const rig = createPogoRig();
   scene.add(rig);
+
+  const marker = new LandingMarker(physics);
+  scene.add(marker.group);
 
   const chargeFill = document.querySelector<HTMLDivElement>("#charge-fill")!;
   const chargeBar = document.querySelector<HTMLDivElement>("#charge")!;
@@ -84,7 +86,6 @@ async function boot(): Promise<void> {
   const up = new THREE.Vector3(0, 1, 0);
   const axis = new THREE.Vector3();
   const tip = new THREE.Vector3();
-  let focusY = FOCUS_HEIGHT;
   let accumulator = 0;
   let lastTime = performance.now();
 
@@ -95,7 +96,7 @@ async function boot(): Promise<void> {
     const loop = advanceLoop(accumulator, frameDt, SIM_DT);
     accumulator = loop.accumulator;
     for (let i = 0; i < loop.steps; i++) {
-      pogo.step(readInput(), CAMERA_YAW, SIM_DT);
+      pogo.step(readInput(), orbit.yaw, SIM_DT);
       physics.step();
     }
 
@@ -117,14 +118,8 @@ async function boot(): Promise<void> {
     const sq = pogo.sinceLaunch < pogoConfig.squashTime ? Math.sin((Math.PI * pogo.sinceLaunch) / pogoConfig.squashTime) : 0;
     rig.scale.set(1 + 0.08 * sq, 1 - 0.15 * sq, 1 + 0.08 * sq);
 
-    // Camera: horizontal follow is exact, vertical follow lags behind the bounce.
-    focusY += (tip.y + FOCUS_HEIGHT - focusY) * (1 - Math.exp(-Math.max(0, frameDt) / CAMERA_VERTICAL_LAG));
-    camera.position.set(
-      tip.x + Math.sin(CAMERA_YAW) * CAMERA_DISTANCE,
-      focusY + CAMERA_HEIGHT - FOCUS_HEIGHT,
-      tip.z + Math.cos(CAMERA_YAW) * CAMERA_DISTANCE,
-    );
-    camera.lookAt(tip.x, focusY, tip.z);
+    marker.update(tip);
+    orbit.update(frameDt, tip, marker.groundY, pogo.moveDir);
 
     chargeFill.style.width = `${pogo.charge.charge * 100}%`;
     chargeBar.classList.toggle("armed", pogo.charge.armed);

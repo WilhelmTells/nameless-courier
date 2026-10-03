@@ -56,9 +56,31 @@ export function applyZoom(
   return clamp(distance + notches * cfg.zoomStep, cfg.distanceMin, cfg.distanceMax);
 }
 
-/** Target extra downward tilt for a fall depth, degrees. */
-export function fallTiltTarget(fallDepth: number, cfg: { fallTiltStart: number; fallTiltMax: number }): number {
-  return fallDepth > cfg.fallTiltStart ? cfg.fallTiltMax : 0;
+/**
+ * Smallest pitch (degrees, at least `basePitch`) at which the point `drop`
+ * metres straight below the focus is inside the view, at most `maxAngle`
+ * degrees from the view centre. The camera looks at the focus from `distance`
+ * away. Used to keep the landing marker on screen during high jumps and falls.
+ */
+export function pitchToSeeBelow(
+  basePitch: number,
+  distance: number,
+  drop: number,
+  maxAngle: number,
+  pitchMax: number,
+): number {
+  const angleAt = (pitch: number) => {
+    const p = pitch * DEG;
+    // 2D, focus at the origin: camera at (-d cos p, d sin p), ground point at (0, -drop).
+    const vx = distance * Math.cos(p);
+    const vy = -distance * Math.sin(p);
+    const gy = -drop - distance * Math.sin(p);
+    const cos = (vx * vx + vy * gy) / (Math.hypot(vx, vy) * Math.hypot(vx, gy));
+    return Math.acos(clamp(cos, -1, 1)) / DEG;
+  };
+  let pitch = basePitch;
+  while (pitch < pitchMax && angleAt(pitch) > maxAngle) pitch = Math.min(pitchMax, pitch + 1);
+  return pitch;
 }
 
 /** Moves `current` towards `target` by at most `maxStep`. */

@@ -4,10 +4,10 @@ import { DEFAULT_CAMERA } from "../src/config.ts";
 import {
   applyMouse,
   applyZoom,
-  fallTiltTarget,
   markerScale,
   moveToward,
   orbitDirection,
+  pitchToSeeBelow,
   recenterYaw,
   springArm,
   wrapAngle,
@@ -58,9 +58,16 @@ test("zoom stays within limits", () => {
   near(applyZoom(6.5, 1, cfg), 6.5 + cfg.zoomStep);
 });
 
-test("fall tilt only beyond the start depth", () => {
-  assert.equal(fallTiltTarget(5, cfg), 0);
-  assert.equal(fallTiltTarget(cfg.fallTiltStart + 1, cfg), cfg.fallTiltMax);
+test("pitch rises only as far as needed to see the ground below", () => {
+  // Standing on the floor: the ground under the focus is already in view.
+  assert.equal(pitchToSeeBelow(15, 6.5, 1, 22, 75), 15);
+  // High above the floor the camera has to orbit up.
+  const high = pitchToSeeBelow(15, 6.5, 11, 22, 75);
+  assert.ok(high > 15 && high < 75, `pitch ${high}`);
+  assert.ok(pitchToSeeBelow(15, 6.5, 30, 22, 75) >= high);
+  // Far below, the ground is straight down: 90° − 22° is enough, short of pitchMax.
+  assert.equal(pitchToSeeBelow(15, 6.5, 1e6, 22, 75), 68);
+  assert.equal(pitchToSeeBelow(15, 6.5, 1e6, 22, 60), 60);
   assert.equal(moveToward(0, 20, 5), 5);
   assert.equal(moveToward(18, 20, 5), 20);
 });

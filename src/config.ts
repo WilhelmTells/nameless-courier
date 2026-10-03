@@ -74,12 +74,14 @@ export interface CameraConfig {
   collisionRadius: number;
   /** How fast the camera moves back out once geometry no longer blocks it, m/s. */
   pushOutRate: number;
-  /** Fall depth below the flight's peak before the camera tilts down, m. */
-  fallTiltStart: number;
-  /** Extra downward tilt during long falls, degrees. */
-  fallTiltMax: number;
-  /** How fast the fall tilt eases in and out, degrees per second. */
-  fallTiltRate: number;
+  /**
+   * Keep the landing marker on screen: the camera orbits up (pitch only, never
+   * yaw) so the surface below the pogo stays at most this many degrees from
+   * the view centre. Vertical field of view is 60°, so 30 is the frame edge.
+   */
+  markerViewAngle: number;
+  /** How fast that automatic tilt eases in and out, degrees per second. */
+  tiltRate: number;
 }
 
 export const DEFAULT_CAMERA: Readonly<CameraConfig> = {
@@ -96,10 +98,8 @@ export const DEFAULT_CAMERA: Readonly<CameraConfig> = {
   verticalLag: 0.35,
   collisionRadius: 0.25,
   pushOutRate: 6,
-  // Just above the charged jump apex, so only real falls tilt the view.
-  fallTiltStart: 11,
-  fallTiltMax: 20,
-  fallTiltRate: 40,
+  markerViewAngle: 22,
+  tiltRate: 90,
 };
 
 /** Live values. The debug panel changes these while the game runs. */
