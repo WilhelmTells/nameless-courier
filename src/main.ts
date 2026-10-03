@@ -7,13 +7,15 @@ import { OrbitCamera } from "./game/camera.ts";
 import { initInput, readInput } from "./game/input.ts";
 import { LandingMarker } from "./game/landingMarker.ts";
 import { Pogo } from "./game/pogo.ts";
+import { buildLevel } from "./game/world.ts";
+import { playground } from "./levels/playground.ts";
 import { createPogoRig } from "./render/pogoRig.ts";
 import { VERSION } from "./version.ts";
 
 const FLOOR_SIZE = 1000; // metres, large enough that its edge is lost in fog
 const GRID_SIZE = 200;
 const SIM_DT = 1 / SIM_HZ;
-const START = { x: 0, y: 0, z: 0 };
+const START = playground.start;
 
 async function boot(): Promise<void> {
   document.querySelector<HTMLDivElement>("#version")!.textContent = VERSION;
@@ -24,10 +26,6 @@ async function boot(): Promise<void> {
   physics.createCollider(
     RAPIER.ColliderDesc.cuboid(FLOOR_SIZE / 2, 0.5, FLOOR_SIZE / 2).setTranslation(0, -0.5, 0),
   );
-  // Build the query structures once, so the camera and marker can cast against
-  // the floor before the first simulation step.
-  physics.step();
-
   const canvas = document.querySelector<HTMLCanvasElement>("#game")!;
   const renderer = new THREE.WebGLRenderer({ canvas, antialias: true });
   renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
@@ -55,6 +53,11 @@ async function boot(): Promise<void> {
   const grid = new THREE.GridHelper(GRID_SIZE, GRID_SIZE, 0x505055, 0x5c5c60);
   grid.position.y = 0.001;
   scene.add(grid);
+
+  buildLevel(playground, scene, physics);
+  // Build the query structures once, so the pogo, camera and marker can cast
+  // against the level before the first simulation step.
+  physics.step();
 
   const pogo = new Pogo(START);
   const rig = createPogoRig();
