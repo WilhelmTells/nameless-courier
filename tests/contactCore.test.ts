@@ -1,7 +1,7 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
 import { DEFAULT_POGO } from "../src/config.ts";
-import { angleBetween, bonkVelocity, slopeLaunch, surfaceKind, tipContactValid, wallKick } from "../src/core/contactCore.ts";
+import { angleBetween, bonkVelocity, slopeLaunch, surfaceKind, tipContactValid, wallKick, wallKickAllowed } from "../src/core/contactCore.ts";
 import { launchVelocity, stickAxis, type Vec3 } from "../src/core/pogoCore.ts";
 
 const cfg = DEFAULT_POGO;
@@ -33,16 +33,23 @@ test("leaning downhill on a steep slope bonks", () => {
   assert.ok(tipContactValid(stickAxis({ x: -30, z: 0 }), slope(30), cfg));
 });
 
-test("wall kick needs 40° or more lean away from a vertical wall", () => {
-  assert.ok(tipContactValid(stickAxis({ x: 41, z: 0 }), WALL, cfg));
-  assert.equal(tipContactValid(stickAxis({ x: 39, z: 0 }), WALL, cfg), false);
-  assert.equal(tipContactValid(stickAxis({ x: -60, z: 0 }), WALL, cfg), false);
-  // Mostly sideways along the wall is outside the window.
-  assert.equal(tipContactValid(stickAxis({ x: 30, z: 45 }), WALL, cfg), false);
+test("ceilings and walls never bounce the tip", () => {
+  assert.equal(tipContactValid(UP, { x: 0, y: -1, z: 0 }, cfg), false);
+  assert.equal(tipContactValid(stickAxis({ x: 50, z: 0 }), WALL, cfg), false);
 });
 
-test("ceilings never launch", () => {
-  assert.equal(tipContactValid(UP, { x: 0, y: -1, z: 0 }, cfg), false);
+test("wall kick needs a direction pressed away from the wall", () => {
+  assert.ok(wallKickAllowed({ x: 1, z: 0 }, WALL, cfg));
+  // 60° off the normal is inside the 70° window, 80° is not.
+  assert.ok(wallKickAllowed({ x: Math.cos(deg(60)), z: Math.sin(deg(60)) }, WALL, cfg));
+  assert.equal(wallKickAllowed({ x: Math.cos(deg(80)), z: Math.sin(deg(80)) }, WALL, cfg), false);
+  assert.equal(wallKickAllowed({ x: -1, z: 0 }, WALL, cfg), false);
+  assert.equal(wallKickAllowed({ x: 0, z: 0 }, WALL, cfg), false);
+});
+
+test("floors and ceilings cannot be kicked off", () => {
+  assert.equal(wallKickAllowed({ x: 0, z: 1 }, UP, cfg), false);
+  assert.equal(wallKickAllowed({ x: 1, z: 0 }, { x: 0.3, y: -0.95, z: 0 }, cfg), false);
 });
 
 test("slope launch on flat ground is the plain launch", () => {
@@ -63,37 +70,25 @@ test("slope launch never points into the surface", () => {
   assert.ok(v.x * n.x + v.y * n.y + v.z * n.z >= -1e-9);
 });
 
-test("wall kick reaches the reduced apex and pushes away from the wall", () => {
-  const v = wallKick(stickAxis({ x: 45, z: 0 }), WALL, cfg.normalApex, { x: -6, y: -8, z: 0 }, cfg);
+test("wall kick: reduced apex, fixed speed in the pressed direction", () => {
+  const v = wallKick({ x: 1, z: 0 }, WALL, cfg.normalApex, { x: -6, y: -8, z: 0 }, cfg);
   near(apexOf(v), cfg.normalApex * cfg.wallKickFactor);
-  assert.ok(v.x > 0);
+  near(v.x, cfg.wallKickSpeed);
   near(v.z, 0);
 });
 
-test("an armed charge fires off a wall at the reduced height", () => {
-  const v = wallKick(stickAxis({ x: 42, z: 0 }), WALL, cfg.chargedApex, { x: 0, y: 0, z: 0 }, cfg);
-  near(apexOf(v), cfg.chargedApex * cfg.wallKickFactor);
+test("an armed charge kicks higher but not farther", () => {
+  const normal = wallKick({ x: 1, z: 0 }, WALL, cfg.normalApex, { x: 0, y: 0, z: 0 }, cfg);
+  const charged = wallKick({ x: 1, z: 0 }, WALL, cfg.chargedApex, { x: 0, y: 0, z: 0 }, cfg);
+  near(apexOf(charged), cfg.chargedApex * cfg.wallKickFactor);
+  near(charged.x, normal.x);
 });
 
-test("wall kick direction follows the lean: a sideways lean steers along the wall", () => {
-  const straight = wallKick(stickAxis({ x: 50, z: 0 }), WALL, 1, { x: 0, y: 0, z: 0 }, cfg);
-  const angled = wallKick(stickAxis({ x: 45, z: -20 }), WALL, 1, { x: 0, y: 0, z: 0 }, cfg);
-  near(straight.z, 0);
-  assert.ok(angled.z < -1, "steered towards -Z");
-});
-
-test("very flat wall kicks go lower", () => {
-  const v = wallKick(stickAxis({ x: 60, z: 0 }), WALL, 1, { x: 0, y: 0, z: 0 }, cfg);
-  assert.ok(apexOf(v) < cfg.wallKickFactor);
-  assert.ok(apexOf(v) > 0.1);
-});
-
-test("wall kick keeps along-wall speed, drops speed into the wall", () => {
-  const still = wallKick(stickAxis({ x: 50, z: 0 }), WALL, 1, { x: 0, y: 0, z: 0 }, cfg);
-  const moving = wallKick(stickAxis({ x: 50, z: 0 }), WALL, 1, { x: -9, y: -3, z: 4 }, cfg);
-  near(moving.x, still.x);
-  near(moving.y, still.y);
-  near(moving.z, 4 * cfg.keepHorizontal);
+test("wall kick steers with the pressed direction and keeps along-wall speed", () => {
+  const d = { x: Math.cos(deg(45)), z: -Math.sin(deg(45)) };
+  const v = wallKick(d, WALL, 1, { x: -9, y: -3, z: 4 }, cfg);
+  near(v.x, d.x * cfg.wallKickSpeed);
+  near(v.z, d.z * cfg.wallKickSpeed + 4 * cfg.keepHorizontal);
 });
 
 test("hard impact on a ceiling bonks: low bounce, most speed lost", () => {

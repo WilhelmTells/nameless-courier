@@ -3,7 +3,7 @@
 
 import RAPIER from "@dimforge/rapier3d-compat";
 import { pogoConfig as cfg } from "../config.ts";
-import { bonkVelocity, slopeLaunch, surfaceKind, tipContactValid, wallKick, angleBetween } from "../core/contactCore.ts";
+import { angleBetween, bonkVelocity, slopeLaunch, tipContactValid, wallKick, wallKickAllowed } from "../core/contactCore.ts";
 import {
   carriedApex,
   launchSpeed,
@@ -106,6 +106,8 @@ export class Pogo {
   private bonkLock = 0;
   /** A direction was pressed since the last launch (or is pressed now). */
   private steering = false;
+  /** Last direction pressed (unit vector) since the last launch; zero if none. Decides wall kicks. */
+  private kickDir: Vec2 = { x: 0, z: 0 };
 
   private world: RAPIER.World;
 
@@ -128,6 +130,7 @@ export class Pogo {
     this.bonkLock = 0;
     this.lastContact = null;
     this.steering = false;
+    this.kickDir = { x: 0, z: 0 };
   }
 
   step(input: PogoInput, cameraYaw: number, dt: number): void {
@@ -138,7 +141,12 @@ export class Pogo {
     const locked = this.bonkLock > 0;
     const hasLean = !locked && (input.lean.x !== 0 || input.lean.z !== 0);
     const target = hasLean ? leanTarget(input.lean, cameraYaw, cfg.maxLean) : NO_LEAN;
-    if (hasLean) this.steering = true;
+    if (hasLean) {
+      this.steering = true;
+      this.kickDir = leanTarget(input.lean, cameraYaw, 1);
+    } else if (!cfg.holdLeanInAir) {
+      this.kickDir = NO_LEAN;
+    }
     // A lean pressed in this flight is held until the next contact.
     const hold = !hasLean && cfg.holdLeanInAir && this.steering;
     const lean = hold ? this.lean : stepLean(this.lean, target, hasLean, dt, cfg);
@@ -184,8 +192,13 @@ export class Pogo {
       const stick = stickAxis(this.lean);
       const n = hit.normal;
       const approaching = disp.x * n.x + disp.y * n.y + disp.z * n.z < 0;
+      // Touching a wall with a direction pressed away from it kicks off it, whatever part touches.
+      if (wallKickAllowed(this.kickDir, n, cfg)) {
+        this.launch(stick, n, "wall");
+        return;
+      }
       if (hit.part === "tip" && approaching && tipContactValid(stick, n, cfg)) {
-        this.launch(stick, n);
+        this.launch(stick, n, "floor");
         return;
       }
       const bonk = bonkVelocity(this.vel, n, cfg);
@@ -193,14 +206,14 @@ export class Pogo {
       if (bonk.hard) {
         this.bonkLock = cfg.bonkLockTime;
         this.steering = false;
+        this.kickDir = NO_LEAN;
         this.lastContact = { kind: "bonk", angle: angleBetween(stick, n) };
       }
       planes.push(n);
     }
   }
 
-  private launch(stick: Vec3, normal: Vec3): void {
-    const kind = surfaceKind(normal, cfg);
+  private launch(stick: Vec3, normal: Vec3, kind: "floor" | "wall"): void {
     // Floor bounces carry part of the fall; wall kicks drop the falling speed.
     const carried = kind === "floor" ? carriedApex(this.peakY - this.pos.y, cfg) : 0;
     const bounce = resolveBounce(this.charge, cfg, carried);
@@ -208,11 +221,12 @@ export class Pogo {
     const keep = { ...cfg, keepHorizontal: momentumKeep(this.steering, cfg) };
     this.steering = false;
     if (kind === "wall") {
-      this.vel = wallKick(stick, normal, bounce.apex, this.vel, keep);
+      this.vel = wallKick(this.kickDir, normal, bounce.apex, this.vel, keep);
     } else {
       const flat = launchVelocity(this.lean, launchSpeed(bounce.apex, cfg.gravity), this.vel, keep);
       this.vel = slopeLaunch(flat, normal, cfg.slopeBlend);
     }
+    this.kickDir = NO_LEAN;
     this.lastContact = { kind, angle: angleBetween(stick, normal) };
     this.lastApex = this.peakY - this.launchY;
     this.peakY = this.launchY = this.pos.y;

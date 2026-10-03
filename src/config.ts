@@ -39,14 +39,14 @@ export interface PogoConfig {
   wallAngle: number;
   /** Largest angle between stick and surface normal for a bounce on floors and slopes, degrees. */
   floorContactLimit: number;
-  /** Largest angle between stick and surface normal for a kick off a wall, degrees. */
-  wallContactLimit: number;
   /** How far a slope turns the launch towards its normal, 0 (none) – 1 (fully). */
   slopeBlend: number;
   /** Apex of a wall kick as a fraction of the same bounce on a floor. */
   wallKickFactor: number;
-  /** Share of the wall normal in the kick direction; the rest follows the stick. */
-  wallNormalBlend: number;
+  /** Horizontal speed of a wall kick in the pressed direction, m/s. Charge does not change it. */
+  wallKickSpeed: number;
+  /** A wall kick needs the pressed direction within this angle of the wall's outward normal, degrees. */
+  wallKickAngle: number;
   /** Bounciness of a bonk, 0–1. */
   bonkRestitution: number;
   /** Fraction of the speed along the surface kept in a bonk, 0–1. */
@@ -80,10 +80,10 @@ export const DEFAULT_POGO: Readonly<PogoConfig> = {
   squashTime: 0.08,
   wallAngle: 60,
   floorContactLimit: 65,
-  wallContactLimit: 50,
   slopeBlend: 0.5,
   wallKickFactor: 0.5,
-  wallNormalBlend: 0.3,
+  wallKickSpeed: 6,
+  wallKickAngle: 70,
   bonkRestitution: 0.1,
   bonkKeep: 0.3,
   bonkMinSpeed: 1,
