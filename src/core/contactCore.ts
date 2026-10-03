@@ -86,19 +86,30 @@ export function wallKick(
 
 /**
  * Response to a non-spring contact. A hard impact (faster than
- * `bonkMinSpeed` into the surface) is a bonk: low bounce, most speed lost.
- * A slower one just slides: the part into the surface is removed.
+ * `bonkMinSpeed` into the surface) is a bonk: low bounce, most speed along
+ * the surface lost. On a wall a bonk keeps the vertical speed (scraping a
+ * wall does not kill the bounce) and pushes away at `wallPushSpeed` or more.
+ * A slower contact just slides: the part into the surface is removed.
  */
 export function bonkVelocity(
   vel: Vec3,
   normal: Vec3,
-  cfg: Pick<PogoConfig, "bonkRestitution" | "bonkKeep" | "bonkMinSpeed">,
+  cfg: Pick<PogoConfig, "bonkRestitution" | "bonkKeep" | "bonkMinSpeed" | "wallAngle" | "wallPushSpeed">,
 ): { vel: Vec3; hard: boolean } {
   const vn = dot(vel, normal);
   if (vn >= 0) return { vel, hard: false };
   const tangent = add(vel, scale(normal, -vn));
-  if (-vn > cfg.bonkMinSpeed) {
+  if (-vn <= cfg.bonkMinSpeed) return { vel: tangent, hard: false };
+
+  const nh = Math.hypot(normal.x, normal.z);
+  const isWall = Math.abs(normal.y) < Math.cos(cfg.wallAngle * DEG) && nh > 1e-9;
+  if (!isWall) {
     return { vel: add(scale(tangent, cfg.bonkKeep), scale(normal, -vn * cfg.bonkRestitution)), hard: true };
   }
-  return { vel: tangent, hard: false };
+  // Wall: split into horizontal-out, horizontal-along and vertical.
+  const out = { x: normal.x / nh, y: 0, z: normal.z / nh };
+  const inOut = vel.x * out.x + vel.z * out.z;
+  const along = { x: vel.x - out.x * inOut, y: 0, z: vel.z - out.z * inOut };
+  const push = Math.max(cfg.wallPushSpeed, -inOut * cfg.bonkRestitution);
+  return { vel: add(add(scale(along, cfg.bonkKeep), scale(out, push)), { x: 0, y: vel.y, z: 0 }), hard: true };
 }

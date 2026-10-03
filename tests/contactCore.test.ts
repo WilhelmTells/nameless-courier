@@ -96,11 +96,24 @@ test("wall kick keeps along-wall speed, drops speed into the wall", () => {
   near(moving.z, 4 * cfg.keepHorizontal);
 });
 
-test("hard impact bonks: low bounce, most speed lost", () => {
-  const { vel, hard } = bonkVelocity({ x: -10, y: -2, z: 0 }, WALL, cfg);
+test("hard impact on a ceiling bonks: low bounce, most speed lost", () => {
+  const { vel, hard } = bonkVelocity({ x: 4, y: 10, z: 0 }, { x: 0, y: -1, z: 0 }, cfg);
   assert.ok(hard);
-  near(vel.x, 10 * cfg.bonkRestitution);
-  near(vel.y, -2 * cfg.bonkKeep);
+  near(vel.y, -10 * cfg.bonkRestitution);
+  near(vel.x, 4 * cfg.bonkKeep);
+});
+
+test("hitting a wall keeps the vertical speed and pushes away", () => {
+  const { vel, hard } = bonkVelocity({ x: -6, y: 6.9, z: 3 }, WALL, cfg);
+  assert.ok(hard);
+  near(vel.y, 6.9);
+  near(vel.x, cfg.wallPushSpeed);
+  near(vel.z, 3 * cfg.bonkKeep);
+});
+
+test("a very hard wall hit bounces back faster than the minimum push", () => {
+  const { vel } = bonkVelocity({ x: -40, y: 0, z: 0 }, WALL, cfg);
+  near(vel.x, 40 * cfg.bonkRestitution);
 });
 
 test("slow contact slides; moving away is untouched", () => {

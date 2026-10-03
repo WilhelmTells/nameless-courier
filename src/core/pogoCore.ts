@@ -102,20 +102,28 @@ export function chargedApex(
   return cfg.normalApex + (cfg.chargedApex - cfg.normalApex) * t;
 }
 
+/** Apex carried over from a fall of `fall` metres: bounces die down gradually. */
+export function carriedApex(fall: number, cfg: Pick<PogoConfig, "bounceRetain" | "maxCarriedApex">): number {
+  return Math.min(cfg.maxCarriedApex, Math.max(0, fall) * cfg.bounceRetain);
+}
+
 /**
  * Decides the bounce on a valid tip contact: an armed charged jump, an idle
- * hop while charging, or a normal bounce. Returns the apex and the charge
+ * hop while charging, or a normal bounce. `carried` is the apex left over
+ * from the fall (see carriedApex); normal and charged bounces go at least
+ * that high, while holding Space absorbs it. Returns the apex and the charge
  * state after the bounce.
  */
 export function resolveBounce(
   state: ChargeState,
   cfg: Pick<PogoConfig, "idleHopApex" | "normalApex" | "chargedApex" | "chargeCurve">,
+  carried = 0,
 ): { apex: number; charge: ChargeState } {
   if (state.armed) {
-    return { apex: chargedApex(state.charge, cfg), charge: { charge: 0, armed: false, held: state.held } };
+    return { apex: Math.max(carried, chargedApex(state.charge, cfg)), charge: { charge: 0, armed: false, held: state.held } };
   }
   if (state.held) return { apex: cfg.idleHopApex, charge: state };
-  return { apex: cfg.normalApex, charge: state };
+  return { apex: Math.max(carried, cfg.normalApex), charge: state };
 }
 
 /**

@@ -5,6 +5,7 @@ import RAPIER from "@dimforge/rapier3d-compat";
 import { pogoConfig as cfg } from "../config.ts";
 import { bonkVelocity, slopeLaunch, surfaceKind, tipContactValid, wallKick, angleBetween } from "../core/contactCore.ts";
 import {
+  carriedApex,
   launchSpeed,
   launchVelocity,
   leanTarget,
@@ -189,9 +190,11 @@ export class Pogo {
   }
 
   private launch(stick: Vec3, normal: Vec3): void {
-    const bounce = resolveBounce(this.charge, cfg);
-    this.charge = bounce.charge;
     const kind = surfaceKind(normal, cfg);
+    // Floor bounces carry part of the fall; wall kicks drop the falling speed.
+    const carried = kind === "floor" ? carriedApex(this.peakY - this.pos.y, cfg) : 0;
+    const bounce = resolveBounce(this.charge, cfg, carried);
+    this.charge = bounce.charge;
     if (kind === "wall") {
       this.vel = wallKick(stick, normal, bounce.apex, this.vel, cfg);
     } else {

@@ -2,6 +2,7 @@ import { test } from "node:test";
 import assert from "node:assert/strict";
 import { DEFAULT_POGO, SIM_HZ } from "../src/config.ts";
 import {
+  carriedApex,
   chargedApex,
   launchSpeed,
   launchVelocity,
@@ -138,4 +139,26 @@ test("a simulated normal bounce peaks at the configured apex", () => {
   assert.ok(peaks.length >= 3);
   // Sampled at 120 Hz the recorded peak is within a few millimetres of the true apex.
   for (const p of peaks) near(p, cfg.normalApex, 0.005);
+});
+
+test("bounces after a fall die down gradually, up to a cap", () => {
+  near(carriedApex(4, cfg), 4 * cfg.bounceRetain);
+  near(carriedApex(100, cfg), cfg.maxCarriedApex);
+  assert.equal(carriedApex(-1, cfg), 0);
+  // 10 m fall: the bounces shrink back towards the normal bounce.
+  let apex = 10;
+  const seen: number[] = [];
+  for (let i = 0; i < 5; i++) {
+    apex = resolveBounce(NO_CHARGE, cfg, carriedApex(apex, cfg)).apex;
+    seen.push(apex);
+  }
+  assert.deepEqual(seen, [5, 2.5, 1.25, 1, 1]);
+});
+
+test("holding Space absorbs the carried bounce; an armed jump goes at least as high", () => {
+  const held: ChargeState = { charge: 0.3, armed: false, held: true };
+  assert.equal(resolveBounce(held, cfg, 5).apex, cfg.idleHopApex);
+  const armed: ChargeState = { charge: 0.1, armed: true, held: false };
+  assert.equal(resolveBounce(armed, cfg, 5).apex, 5);
+  near(resolveBounce({ charge: 1, armed: true, held: false }, cfg, 5).apex, cfg.chargedApex);
 });

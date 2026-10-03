@@ -51,6 +51,12 @@ export interface PogoConfig {
   bonkMinSpeed: number;
   /** Lean input is ignored for this long after a bonk, s. */
   bonkLockTime: number;
+  /** Smallest speed away from a wall after the shaft or body hits it, m/s. */
+  wallPushSpeed: number;
+  /** Share of the fall height carried into the next floor bounce, 0–1. Holding Space absorbs it. */
+  bounceRetain: number;
+  /** Highest apex a carried bounce can reach, m. */
+  maxCarriedApex: number;
 }
 
 export const DEFAULT_POGO: Readonly<PogoConfig> = {
@@ -76,6 +82,9 @@ export const DEFAULT_POGO: Readonly<PogoConfig> = {
   bonkKeep: 0.3,
   bonkMinSpeed: 1,
   bonkLockTime: 0.3,
+  wallPushSpeed: 2,
+  bounceRetain: 0.5,
+  maxCarriedApex: 5,
 };
 
 /** Live values. The debug panel changes these while the game runs. */
