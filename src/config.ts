@@ -3,6 +3,9 @@
 /** Simulation rate. The pogo is simulated at a fixed step, whatever the frame rate. */
 export const SIM_HZ = 120;
 
+/** Losing more than this much height below the highest surface reached counts as a fall, m. */
+export const FALL_HEIGHT = 5;
+
 export interface PogoConfig {
   /** Downward acceleration in flight, m/s². */
   gravity: number;

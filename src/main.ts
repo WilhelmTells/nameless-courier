@@ -1,6 +1,7 @@
 import * as THREE from "three";
 import RAPIER from "@dimforge/rapier3d-compat";
-import { pogoConfig, SIM_HZ } from "./config.ts";
+import { FALL_HEIGHT, pogoConfig, SIM_HZ } from "./config.ts";
+import { formatTime, newStats, onLaunch } from "./core/fallCore.ts";
 import { advanceLoop } from "./core/loopCore.ts";
 import { stickAxis } from "./core/pogoCore.ts";
 import { OrbitCamera } from "./game/camera.ts";
@@ -67,6 +68,20 @@ async function boot(): Promise<void> {
   const marker = new LandingMarker(physics);
   scene.add(marker.group);
 
+  let stats = newStats(START.y);
+  let seenLaunches = pogo.launches;
+  const statsLabel = document.querySelector<HTMLDivElement>("#stats")!;
+  let statsText = "";
+  const showStats = () => {
+    const text = [
+      `height ${stats.height.toFixed(1)} m`,
+      `best   ${stats.best.toFixed(1)} m`,
+      `time   ${formatTime(stats.time)}`,
+      `falls  ${stats.falls}`,
+    ].join("\n");
+    if (text !== statsText) statsLabel.textContent = statsText = text;
+  };
+
   const chargeFill = document.querySelector<HTMLDivElement>("#charge-fill")!;
   const chargeBar = document.querySelector<HTMLDivElement>("#charge")!;
 
@@ -110,6 +125,11 @@ async function boot(): Promise<void> {
     for (let i = 0; i < loop.steps; i++) {
       pogo.step(readInput(), orbit.yaw, SIM_DT);
       physics.step();
+      stats.time += SIM_DT;
+      if (pogo.launches !== seenLaunches) {
+        seenLaunches = pogo.launches;
+        stats = onLaunch(stats, pogo.groundY, FALL_HEIGHT);
+      }
     }
 
     // Interpolate between the last two simulation states.
@@ -137,6 +157,7 @@ async function boot(): Promise<void> {
     rider.set(tip.x + s.x * h, tip.y + (s.y - 1) * h, tip.z + s.z * h);
     orbit.update(frameDt, rider, marker.groundY, pogo.moveDir);
 
+    showStats();
     chargeFill.style.width = `${pogo.charge.charge * 100}%`;
     chargeBar.classList.toggle("armed", pogo.charge.armed);
 

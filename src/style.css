@@ -20,6 +20,14 @@ body {
   color: #c8c6c0;
 }
 
+#stats {
+  position: absolute;
+  left: 10px;
+  top: 8px;
+  white-space: pre;
+  opacity: 0.8;
+}
+
 #version {
   position: absolute;
   right: 10px;

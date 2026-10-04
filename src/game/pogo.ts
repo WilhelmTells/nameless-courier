@@ -98,6 +98,8 @@ export class Pogo {
   moveDir: Vec2 = { x: 0, z: 0 };
   /** The most recent contact, for the debug readout. */
   lastContact: Contact | null = null;
+  /** Number of launches so far: changes whenever the pogo bounces. */
+  launches = 0;
 
   /** State before the last step, for render interpolation. */
   prevPos: Vec3;
@@ -120,6 +122,11 @@ export class Pogo {
     this.pos = { ...start, y: start.y + SPAWN_LIFT };
     this.prevPos = { ...this.pos };
     this.peakY = this.launchY = start.y;
+  }
+
+  /** Height of the last launch point, m. */
+  get groundY(): number {
+    return this.launchY;
   }
 
   reset(start: Vec3): void {
@@ -280,6 +287,7 @@ export class Pogo {
     this.lastApex = this.peakY - this.launchY;
     this.peakY = this.launchY = this.pos.y;
     this.sinceLaunch = 0;
+    this.launches++;
   }
 
   /** Earliest contact of any part moving by `disp` (fraction of `disp`); the tip wins ties. */
