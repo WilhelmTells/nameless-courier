@@ -4,6 +4,8 @@
 // Two control modes: "wasd" leans with the keys and the mouse orbits the
 // camera; "mouse" leans with the mouse, charges with the left button, and
 // orbits the camera only while the right button is held. C switches.
+// E gets off the pogo at a rest spot and back on; while standing, the mouse
+// orbits the camera in both modes.
 
 export type ControlMode = "wasd" | "mouse";
 
@@ -15,6 +17,8 @@ export interface PogoInput {
   charge: boolean;
   /** Mouse movement for the lean since the last read, pixels (mouse mode only). */
   mouse: { dx: number; dy: number };
+  /** E was pressed since the last read: get off / get on. */
+  toggleRide: boolean;
 }
 
 const SETTINGS_KEY = "courier.settings";
@@ -25,6 +29,8 @@ let leftHeld = false;
 let rightHeld = false;
 let mouseDx = 0;
 let mouseDy = 0;
+let rideToggle = false;
+let standing = false;
 const listeners: ((mode: ControlMode) => void)[] = [];
 
 function loadMode(): ControlMode {
@@ -63,7 +69,13 @@ export function onControlModeChange(fn: (mode: ControlMode) => void): void {
 
 /** True while the mouse should orbit the camera. */
 export function mouseOrbits(): boolean {
-  return mode === "wasd" || rightHeld;
+  return mode === "wasd" || rightHeld || standing;
+}
+
+/** Tells the input whether the courier is off the pogo (the mouse then only orbits). */
+export function setStanding(value: boolean): void {
+  if (value && !standing) mouseDx = mouseDy = 0;
+  standing = value;
 }
 
 function isTyping(target: EventTarget | null): boolean {
@@ -77,6 +89,7 @@ export function initInput(canvas: HTMLCanvasElement): void {
     held.add(e.code);
     if (e.code === "Space") e.preventDefault();
     if (e.code === "KeyC" && !e.repeat) setControlMode(mode === "wasd" ? "mouse" : "wasd");
+    if (e.code === "KeyE" && !e.repeat) rideToggle = true;
   });
   window.addEventListener("keyup", (e) => held.delete(e.code));
   const releaseAll = () => {
@@ -100,7 +113,7 @@ export function initInput(canvas: HTMLCanvasElement): void {
   });
   canvas.addEventListener("contextmenu", (e) => e.preventDefault());
   document.addEventListener("mousemove", (e) => {
-    if (!locked() || mode !== "mouse" || rightHeld) return;
+    if (!locked() || mode !== "mouse" || rightHeld || standing) return;
     mouseDx += e.movementX;
     mouseDy += e.movementY;
   });
@@ -111,11 +124,14 @@ export function readInput(): PogoInput {
   const key = (code: string) => (held.has(code) ? 1 : 0);
   const mouse = { dx: mouseDx, dy: mouseDy };
   mouseDx = mouseDy = 0;
+  const toggleRide = rideToggle;
+  rideToggle = false;
   const wasd = mode === "wasd";
   return {
     mode,
     lean: wasd ? { x: key("KeyD") - key("KeyA"), z: key("KeyW") - key("KeyS") } : { x: 0, z: 0 },
     charge: held.has("Space") || (!wasd && leftHeld),
     mouse,
+    toggleRide,
   };
 }

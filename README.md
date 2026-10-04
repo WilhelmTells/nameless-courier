@@ -23,6 +23,7 @@ and mouse.
 | R | Put the camera behind your direction of movement |
 | Esc | Release the mouse |
 | C | Switch between keyboard and mouse controls |
+| E | Get off the pogo at a calm spot, and back on |
 
 **Mouse controls** (press C): moving the mouse tilts the stick, which stays
 where you leave it. Hold the left button (or Space) to charge, and hold the
@@ -31,6 +32,7 @@ right button to orbit the camera.
 The pogo never stops bouncing. The lean at the moment the tip touches the
 ground decides where the next bounce goes; there is no control in the air.
 Leaning with your motion builds speed, leaning against it brakes.
+Only at a few calm spots can the courier get off and stand for a while.
 
 ## Development
 

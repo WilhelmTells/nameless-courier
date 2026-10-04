@@ -17,6 +17,8 @@ export interface PogoState {
   launchY: number;
   /** Highest point since the last launch, m. */
   peakY: number;
+  /** Off the pogo at a rest spot. Missing in older saves, which means riding. */
+  standing: boolean;
 }
 
 export interface RunSave {
@@ -51,7 +53,8 @@ function pogoState(v: unknown): PogoState | null {
   const charge = num(v.charge), launchY = num(v.launchY), peakY = num(v.peakY);
   if (!pos || !vel || !lean || charge === null || launchY === null || peakY === null) return null;
   if (typeof v.armed !== "boolean" || charge < 0 || charge > 1) return null;
-  return { pos, vel, lean, charge, armed: v.armed, launchY, peakY };
+  if (v.standing !== undefined && typeof v.standing !== "boolean") return null;
+  return { pos, vel, lean, charge, armed: v.armed, launchY, peakY, standing: v.standing === true };
 }
 
 function stats(v: unknown): RunStats | null {

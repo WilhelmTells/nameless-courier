@@ -13,6 +13,7 @@ const run: RunSave = {
     armed: true,
     launchY: 10,
     peakY: 13,
+    standing: true,
   },
   yaw: 1.2,
   stats: { height: 10, best: 13.5, falls: 2, fallRef: 10, time: 321.5 },
@@ -20,6 +21,12 @@ const run: RunSave = {
 
 test("a saved run reads back unchanged", () => {
   assert.deepEqual(parseRun(JSON.stringify(run), "zone1"), run);
+});
+
+test("saves from before rest spots load as riding", () => {
+  const { standing: _, ...old } = run.pogo;
+  assert.equal(parseRun(JSON.stringify({ ...run, pogo: old }), "zone1")?.pogo.standing, false);
+  assert.equal(parseRun(JSON.stringify({ ...run, pogo: { ...run.pogo, standing: "yes" } }), "zone1"), null);
 });
 
 test("no save, corrupt JSON, another level or version give no run", () => {

@@ -51,6 +51,9 @@ const POGO: ConfigGroup<PogoConfig> = {
     wallPushSpeed: [0, 6, 0.1],
     bounceRetain: [0, 0.9, 0.05],
     maxCarriedApex: [1, 20, 0.5],
+    dismountTime: [0, 2, 0.05],
+    mountTime: [0, 2, 0.05],
+    dismountMaxSpeed: [0, 10, 0.5],
   },
   folders: [
     ["Bounce", ["gravity", "idleHopApex", "normalApex", "chargedApex", "bounceRetain", "maxCarriedApex"]],
@@ -59,6 +62,7 @@ const POGO: ConfigGroup<PogoConfig> = {
     ["Momentum", ["keepHorizontal", "keepWithoutInput", "leanPush"]],
     ["Walls & slopes", ["wallAngle", "floorContactLimit", "slopeBlend", "wallKickFactor", "wallKickSpeed", "wallKickAngle"]],
     ["Bonk", ["bonkRestitution", "bonkKeep", "bonkMinSpeed", "bonkLockTime", "wallPushSpeed"]],
+    ["Rest", ["dismountTime", "mountTime", "dismountMaxSpeed"]],
     ["Visual", ["squashTime"]],
   ],
 };

@@ -5,8 +5,9 @@ import { formatTime, newStats, onLaunch } from "./core/fallCore.ts";
 import { parseBest, parseRun, SAVE_VERSION, type RunSave } from "./core/saveCore.ts";
 import { advanceLoop } from "./core/loopCore.ts";
 import { stickAxis } from "./core/pogoCore.ts";
+import { standAmount } from "./core/restCore.ts";
 import { OrbitCamera } from "./game/camera.ts";
-import { controlMode, initInput, onControlModeChange, readInput, type ControlMode } from "./game/input.ts";
+import { controlMode, initInput, onControlModeChange, readInput, setStanding, type ControlMode } from "./game/input.ts";
 import { LandingMarker } from "./game/landingMarker.ts";
 import { Pogo } from "./game/pogo.ts";
 import { buildLevel } from "./game/world.ts";
@@ -85,9 +86,9 @@ async function boot(): Promise<void> {
   // against the level before the first simulation step.
   physics.step();
 
-  const pogo = new Pogo(START, physics);
+  const pogo = new Pogo(START, physics, LEVEL.restSpots);
   const rig = createPogoRig();
-  scene.add(rig);
+  scene.add(rig.group);
 
   const marker = new LandingMarker(physics);
   scene.add(marker.group);
@@ -143,6 +144,15 @@ async function boot(): Promise<void> {
   const chargeBar = document.querySelector<HTMLDivElement>("#charge")!;
 
   initInput(canvas);
+  const rideHint = document.querySelector<HTMLDivElement>("#ride-hint")!;
+  let rideHintText = "";
+  const showRideHint = () => {
+    const r = pogo.ride;
+    const text =
+      r.phase === "standing" ? "E: get on" :
+      r.phase === "riding" && pogo.inRestSpot() ? (r.requested ? "getting off…" : "E: get off") : "";
+    if (text !== rideHintText) rideHint.textContent = rideHintText = text;
+  };
   const controlsLabel = document.querySelector<HTMLDivElement>("#controls")!;
   const showControls = (mode: ControlMode) => {
     controlsLabel.textContent =
@@ -202,12 +212,13 @@ async function boot(): Promise<void> {
       x: pogo.prevLean.x + (pogo.lean.x - pogo.prevLean.x) * a,
       z: pogo.prevLean.z + (pogo.lean.z - pogo.prevLean.z) * a,
     });
-    rig.position.copy(tip);
-    rig.quaternion.setFromUnitVectors(up, axis.set(s.x, s.y, s.z));
+    rig.group.position.copy(tip);
+    rig.group.quaternion.setFromUnitVectors(up, axis.set(s.x, s.y, s.z));
+    rig.setStand(standAmount(pogo.ride, pogoConfig));
 
     // Squash and stretch on launch (visual only).
     const sq = pogo.sinceLaunch < pogoConfig.squashTime ? Math.sin((Math.PI * pogo.sinceLaunch) / pogoConfig.squashTime) : 0;
-    rig.scale.set(1 + 0.08 * sq, 1 - 0.15 * sq, 1 + 0.08 * sq);
+    rig.group.scale.set(1 + 0.08 * sq, 1 - 0.15 * sq, 1 + 0.08 * sq);
 
     marker.update(tip);
     // The camera follows the rider, not the swinging tip: the point where the
@@ -217,6 +228,8 @@ async function boot(): Promise<void> {
     orbit.update(frameDt, rider, marker.groundY, pogo.moveDir);
 
     showStats();
+    showRideHint();
+    setStanding(pogo.ride.phase !== "riding");
     chargeFill.style.width = `${pogo.charge.charge * 100}%`;
     chargeBar.classList.toggle("armed", pogo.charge.armed);
 

@@ -22,6 +22,7 @@ import {
   type Vec2,
   type Vec3,
 } from "../core/pogoCore.ts";
+import { canDismount, inRestSpot, RIDING, STANDING, stepRide, type RestRegion, type RideState } from "../core/restCore.ts";
 import type { PogoState } from "../core/saveCore.ts";
 import type { PogoInput } from "./input.ts";
 
@@ -99,8 +100,10 @@ export class Pogo {
   moveDir: Vec2 = { x: 0, z: 0 };
   /** The most recent contact, for the debug readout. */
   lastContact: Contact | null = null;
-  /** Number of launches so far: changes whenever the pogo bounces. */
+  /** Number of launches so far: changes whenever the pogo bounces (or the courier gets off). */
   launches = 0;
+  /** Riding, or getting off / standing / getting on at a rest spot. */
+  ride: RideState = { ...RIDING };
 
   /** State before the last step, for render interpolation. */
   prevPos: Vec3;
@@ -117,9 +120,11 @@ export class Pogo {
   private kickDir: Vec2 = { x: 0, z: 0 };
 
   private world: RAPIER.World;
+  private restSpots: readonly RestRegion[];
 
-  constructor(start: Vec3, world: RAPIER.World) {
+  constructor(start: Vec3, world: RAPIER.World, restSpots: readonly RestRegion[] = []) {
     this.world = world;
+    this.restSpots = restSpots;
     this.pos = { ...start, y: start.y + SPAWN_LIFT };
     this.prevPos = { ...this.pos };
     this.peakY = this.launchY = start.y;
@@ -143,12 +148,19 @@ export class Pogo {
     this.lastContact = null;
     this.steering = false;
     this.kickDir = { x: 0, z: 0 };
+    this.ride = { ...RIDING };
+  }
+
+  /** True when the pogo is inside a rest spot, where the courier can get off. */
+  inRestSpot(): boolean {
+    return inRestSpot(this.restSpots, this.pos);
   }
 
   /** The state needed to continue later, for saving. */
   snapshot(): PogoState {
     const { charge, armed } = this.charge;
-    return { pos: this.pos, vel: this.vel, lean: this.lean, charge, armed, launchY: this.launchY, peakY: this.peakY };
+    const standing = this.ride.phase === "gettingOff" || this.ride.phase === "standing";
+    return { pos: this.pos, vel: this.vel, lean: this.lean, charge, armed, launchY: this.launchY, peakY: this.peakY, standing };
   }
 
   /** Continues from a saved state. Keys are not held after a reload. */
@@ -160,11 +172,35 @@ export class Pogo {
     this.charge = { charge: s.charge, armed: s.armed, held: false };
     this.launchY = s.launchY;
     this.peakY = s.peakY;
+    if (s.standing) {
+      this.ride = { ...STANDING };
+      this.vel = { x: 0, y: 0, z: 0 };
+      this.lean = this.prevLean = { x: 0, z: 0 };
+    }
   }
 
   step(input: PogoInput, cameraYaw: number, dt: number): void {
     this.prevPos = this.pos;
     this.prevLean = this.lean;
+
+    const wasGettingOn = this.ride.phase === "gettingOn";
+    this.ride = stepRide(this.ride, input.toggleRide, this.inRestSpot(), dt, cfg);
+    if (this.ride.phase !== "riding") {
+      // Off the pogo: the courier stands still and holds the stick upright.
+      this.vel = { x: 0, y: 0, z: 0 };
+      this.charge = { ...NO_CHARGE };
+      this.lean = stepLean(this.lean, NO_LEAN, false, dt, cfg);
+      this.sinceLaunch += dt;
+      return;
+    }
+    if (wasGettingOn) {
+      // Back on: the next bounce starts from rest, with nothing carried over.
+      this.vel = { x: 0, y: 0, z: 0 };
+      this.lean = this.prevLean = { x: 0, z: 0 };
+      this.peakY = this.launchY = this.pos.y;
+      this.steering = false;
+      this.kickDir = NO_LEAN;
+    }
 
     this.bonkLock = Math.max(0, this.bonkLock - dt);
     const locked = this.bonkLock > 0;
@@ -272,7 +308,8 @@ export class Pogo {
         return;
       }
       if (hit.part === "tip" && approaching && tipContactValid(stick, n, cfg)) {
-        this.launch(stick, n, "floor");
+        if (canDismount(this.ride, this.inRestSpot(), Math.hypot(this.vel.x, this.vel.z), cfg)) this.getOff(stick, n);
+        else this.launch(stick, n, "floor");
         return;
       }
       const bonk = bonkVelocity(this.vel, n, cfg);
@@ -285,6 +322,19 @@ export class Pogo {
       }
       planes.push(n);
     }
+  }
+
+  /** Lands without launching and starts getting off. Counts as a launch from here for the run stats. */
+  private getOff(stick: Vec3, normal: Vec3): void {
+    this.vel = { x: 0, y: 0, z: 0 };
+    this.charge = { ...NO_CHARGE };
+    this.ride = { phase: "gettingOff", t: 0, requested: false };
+    this.steering = false;
+    this.kickDir = NO_LEAN;
+    this.lastContact = { kind: "floor", angle: angleBetween(stick, normal) };
+    this.lastApex = this.peakY - this.launchY;
+    this.peakY = this.launchY = this.pos.y;
+    this.launches++;
   }
 
   private launch(stick: Vec3, normal: Vec3, kind: "floor" | "wall"): void {
