@@ -6,8 +6,11 @@ who may not exist. One bad bounce can cost a lot of progress.
 
 **▶ Play: https://wilhelmtells.github.io/nameless-courier/**
 
-Early prototype: the pogo and the camera on a test floor. No level yet.
-Desktop browsers with keyboard and mouse.
+**Movement playground** (test blocks, with the tuning panel):
+https://wilhelmtells.github.io/nameless-courier/?debug&level=playground
+
+Early prototype: the first zone in grey-box. Desktop browsers with keyboard
+and mouse.
 
 ## Controls
 

@@ -8,14 +8,15 @@ import { controlMode, initInput, onControlModeChange, readInput, type ControlMod
 import { LandingMarker } from "./game/landingMarker.ts";
 import { Pogo } from "./game/pogo.ts";
 import { buildLevel } from "./game/world.ts";
-import { playground } from "./levels/playground.ts";
+import { levelFromSearch } from "./levels/index.ts";
 import { createPogoRig } from "./render/pogoRig.ts";
 import { VERSION } from "./version.ts";
 
 const FLOOR_SIZE = 1000; // metres, large enough that its edge is lost in fog
 const GRID_SIZE = 200;
 const SIM_DT = 1 / SIM_HZ;
-const START = playground.start;
+const LEVEL = levelFromSearch(location.search);
+const START = LEVEL.start;
 
 async function boot(): Promise<void> {
   document.querySelector<HTMLDivElement>("#version")!.textContent = VERSION;
@@ -54,7 +55,7 @@ async function boot(): Promise<void> {
   grid.position.y = 0.001;
   scene.add(grid);
 
-  buildLevel(playground, scene, physics);
+  buildLevel(LEVEL, scene, physics);
   // Build the query structures once, so the pogo, camera and marker can cast
   // against the level before the first simulation step.
   physics.step();
