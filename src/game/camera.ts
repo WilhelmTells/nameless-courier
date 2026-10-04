@@ -1,5 +1,6 @@
-// Third-person orbit camera: mouse orbit with pointer lock, wheel zoom,
-// recenter key, spring arm against geometry, tilt during long falls.
+// Third-person orbit camera: mouse orbit with pointer lock (only while the
+// right button is held in mouse control mode), wheel zoom, recenter key,
+// spring arm against geometry, tilt during long falls.
 // It never turns horizontally by itself: lean is camera-relative.
 
 import * as THREE from "three";
@@ -16,6 +17,7 @@ import {
   springArm,
 } from "../core/cameraCore.ts";
 import type { Vec2 } from "../core/pogoCore.ts";
+import { mouseOrbits } from "./input.ts";
 
 /** Closest the spring arm may pull the camera to the focus point, m. */
 const MIN_ARM = 0.5;
@@ -47,7 +49,8 @@ export class OrbitCamera {
       if (document.pointerLockElement !== canvas) canvas.requestPointerLock();
     });
     document.addEventListener("mousemove", (e) => {
-      if (document.pointerLockElement !== canvas) return;
+      // With mouse controls the mouse leans the stick; it orbits only while the right button is held.
+      if (document.pointerLockElement !== canvas || !mouseOrbits()) return;
       this.mouseDx += e.movementX;
       this.mouseDy += e.movementY;
     });

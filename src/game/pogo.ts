@@ -5,6 +5,7 @@ import RAPIER from "@dimforge/rapier3d-compat";
 import { pogoConfig as cfg } from "../config.ts";
 import { angleBetween, bonkVelocity, slopeLaunch, tipContactValid, wallKick, wallKickAllowed } from "../core/contactCore.ts";
 import {
+  applyMouseLean,
   carriedApex,
   launchSpeed,
   launchVelocity,
@@ -139,6 +140,20 @@ export class Pogo {
 
     this.bonkLock = Math.max(0, this.bonkLock - dt);
     const locked = this.bonkLock > 0;
+    if (input.mode === "mouse") this.stepMouseLean(input, cameraYaw, locked, dt);
+    else this.stepKeyLean(input, cameraYaw, locked, dt);
+    this.charge = stepCharge(this.charge, input.charge, dt, cfg);
+
+    this.move(dt);
+
+    this.sinceLaunch += dt;
+    this.peakY = Math.max(this.peakY, this.pos.y);
+    const hSpeed = Math.hypot(this.vel.x, this.vel.z);
+    if (hSpeed > MOVE_DIR_MIN_SPEED) this.moveDir = { x: this.vel.x / hSpeed, z: this.vel.z / hSpeed };
+  }
+
+  /** WASD: the lean eases towards the pressed direction. */
+  private stepKeyLean(input: PogoInput, cameraYaw: number, locked: boolean, dt: number): void {
     const hasLean = !locked && (input.lean.x !== 0 || input.lean.z !== 0);
     const target = hasLean ? leanTarget(input.lean, cameraYaw, cfg.maxLean) : NO_LEAN;
     if (hasLean) {
@@ -149,17 +164,28 @@ export class Pogo {
     }
     // A lean pressed in this flight is held until the next contact.
     const hold = !hasLean && cfg.holdLeanInAir && this.steering;
-    const lean = hold ? this.lean : stepLean(this.lean, target, hasLean, dt, cfg);
-    // The stick cannot turn into geometry; it stays put unless it is already stuck in it.
+    this.setLean(hold ? this.lean : stepLean(this.lean, target, hasLean, dt, cfg));
+  }
+
+  /**
+   * Mouse: the mouse moves the lean directly and it stays where it is left.
+   * After a bonk it eases back to upright while input is locked. A lean past
+   * the deadzone counts as a pressed direction (momentum, wall kicks).
+   */
+  private stepMouseLean(input: PogoInput, cameraYaw: number, locked: boolean, dt: number): void {
+    this.setLean(
+      locked
+        ? stepLean(this.lean, NO_LEAN, false, dt, cfg)
+        : applyMouseLean(this.lean, input.mouse.dx, input.mouse.dy, cameraYaw, cfg.mouseLeanSensitivity, cfg.maxLean),
+    );
+    const angle = Math.hypot(this.lean.x, this.lean.z);
+    this.steering = !locked && angle > cfg.mouseDeadzone;
+    this.kickDir = this.steering ? { x: this.lean.x / angle, z: this.lean.z / angle } : NO_LEAN;
+  }
+
+  /** The stick cannot turn into geometry; it stays put unless it is already stuck in it. */
+  private setLean(lean: Vec2): void {
     if (!this.overlaps(lean) || this.overlaps(this.lean)) this.lean = lean;
-    this.charge = stepCharge(this.charge, input.charge, dt, cfg);
-
-    this.move(dt);
-
-    this.sinceLaunch += dt;
-    this.peakY = Math.max(this.peakY, this.pos.y);
-    const hSpeed = Math.hypot(this.vel.x, this.vel.z);
-    if (hSpeed > MOVE_DIR_MIN_SPEED) this.moveDir = { x: this.vel.x / hSpeed, z: this.vel.z / hSpeed };
   }
 
   /** Moves along the flight path for `dt`, resolving contacts on the way. */

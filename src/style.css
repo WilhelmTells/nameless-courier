@@ -27,6 +27,13 @@ body {
   opacity: 0.6;
 }
 
+#controls {
+  position: absolute;
+  left: 10px;
+  bottom: 8px;
+  opacity: 0.6;
+}
+
 #charge {
   position: absolute;
   left: 50%;

@@ -3,6 +3,7 @@
 
 import GUI from "lil-gui";
 import { cameraConfig, DEFAULT_CAMERA, DEFAULT_POGO, pogoConfig, type CameraConfig, type PogoConfig } from "../config.ts";
+import { controlMode, onControlModeChange, setControlMode, type ControlMode } from "../game/input.ts";
 import type { Pogo } from "../game/pogo.ts";
 
 type Range = [min: number, max: number, step: number];
@@ -120,6 +121,16 @@ function addGroup<T extends object>(gui: GUI, group: ConfigGroup<T>): void {
 
 export function createDebugPanel(pogo: Pogo, resetPosition: () => void): void {
   const gui = new GUI({ title: "Debug" });
+
+  const settings = { controls: controlMode() };
+  const controls = gui
+    .add(settings, "controls", { WASD: "wasd", Mouse: "mouse" })
+    .name("Controls")
+    .onChange((mode: ControlMode) => setControlMode(mode));
+  onControlModeChange((mode) => {
+    settings.controls = mode;
+    controls.updateDisplay();
+  });
 
   const readout = { height: "", speed: "", charge: "", lastApex: "", contact: "" };
   const live = gui.addFolder("Readout");

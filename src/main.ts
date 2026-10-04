@@ -4,7 +4,7 @@ import { pogoConfig, SIM_HZ } from "./config.ts";
 import { advanceLoop } from "./core/loopCore.ts";
 import { stickAxis } from "./core/pogoCore.ts";
 import { OrbitCamera } from "./game/camera.ts";
-import { initInput, readInput } from "./game/input.ts";
+import { controlMode, initInput, onControlModeChange, readInput, type ControlMode } from "./game/input.ts";
 import { LandingMarker } from "./game/landingMarker.ts";
 import { Pogo } from "./game/pogo.ts";
 import { buildLevel } from "./game/world.ts";
@@ -69,7 +69,14 @@ async function boot(): Promise<void> {
   const chargeFill = document.querySelector<HTMLDivElement>("#charge-fill")!;
   const chargeBar = document.querySelector<HTMLDivElement>("#charge")!;
 
-  initInput();
+  initInput(canvas);
+  const controlsLabel = document.querySelector<HTMLDivElement>("#controls")!;
+  const showControls = (mode: ControlMode) => {
+    controlsLabel.textContent =
+      mode === "mouse" ? "Mouse controls · right mouse: camera · C: switch" : "WASD controls · C: switch";
+  };
+  showControls(controlMode());
+  onControlModeChange(showControls);
 
   if (new URLSearchParams(location.search).has("debug")) {
     const { createDebugPanel } = await import("./ui/debugPanel.ts");
