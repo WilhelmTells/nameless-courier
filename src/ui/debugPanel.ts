@@ -120,7 +120,7 @@ function addGroup<T extends object>(gui: GUI, group: ConfigGroup<T>): void {
   }
 }
 
-export function createDebugPanel(pogo: Pogo, resetPosition: () => void): void {
+export function createDebugPanel(pogo: Pogo, resetPosition: () => void, newRun: () => void): void {
   const gui = new GUI({ title: "Debug" });
 
   const settings = { controls: controlMode() };
@@ -161,9 +161,11 @@ export function createDebugPanel(pogo: Pogo, resetPosition: () => void): void {
       save(CAMERA);
     },
     resetPosition,
+    newRun,
   };
   const tools = gui.addFolder("Tools");
   tools.add(actions, "copyValues").name("Copy values");
   tools.add(actions, "resetValues").name("Reset values");
   tools.add(actions, "resetPosition").name("Back to start");
+  tools.add(actions, "newRun").name("New run (clears the save)");
 }

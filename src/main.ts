@@ -2,6 +2,7 @@ import * as THREE from "three";
 import RAPIER from "@dimforge/rapier3d-compat";
 import { FALL_HEIGHT, pogoConfig, SIM_HZ } from "./config.ts";
 import { formatTime, newStats, onLaunch } from "./core/fallCore.ts";
+import { parseBest, parseRun, SAVE_VERSION, type RunSave } from "./core/saveCore.ts";
 import { advanceLoop } from "./core/loopCore.ts";
 import { stickAxis } from "./core/pogoCore.ts";
 import { OrbitCamera } from "./game/camera.ts";
@@ -9,7 +10,7 @@ import { controlMode, initInput, onControlModeChange, readInput, type ControlMod
 import { LandingMarker } from "./game/landingMarker.ts";
 import { Pogo } from "./game/pogo.ts";
 import { buildLevel } from "./game/world.ts";
-import { levelFromSearch } from "./levels/index.ts";
+import { DEFAULT_LEVEL, levelFromSearch } from "./levels/index.ts";
 import { createPogoRig } from "./render/pogoRig.ts";
 import { VERSION } from "./version.ts";
 
@@ -18,6 +19,29 @@ const GRID_SIZE = 200;
 const SIM_DT = 1 / SIM_HZ;
 const LEVEL = levelFromSearch(location.search);
 const START = LEVEL.start;
+/** Only the game's own level is saved; test levels always start fresh. */
+const SAVES = LEVEL === DEFAULT_LEVEL;
+const RUN_KEY = "courier.run";
+const BEST_KEY = "courier.best";
+/** Simulation time between saves, s. */
+const SAVE_INTERVAL = 1;
+
+function readStorage(key: string): string | null {
+  try {
+    return localStorage.getItem(key);
+  } catch {
+    return null;
+  }
+}
+
+function writeStorage(key: string, value: string | null): void {
+  try {
+    if (value === null) localStorage.removeItem(key);
+    else localStorage.setItem(key, value);
+  } catch {
+    // Storage unavailable: the run lasts until reload.
+  }
+}
 
 async function boot(): Promise<void> {
   document.querySelector<HTMLDivElement>("#version")!.textContent = VERSION;
@@ -69,13 +93,46 @@ async function boot(): Promise<void> {
   scene.add(marker.group);
 
   let stats = newStats(START.y);
+  const saved = SAVES ? parseRun(readStorage(RUN_KEY), LEVEL.id) : null;
+  if (saved) {
+    pogo.restore(saved.pogo);
+    orbit.yaw = saved.yaw;
+    stats = saved.stats;
+  }
+  const savedBest = SAVES ? parseBest(readStorage(BEST_KEY)) : null;
+  if (savedBest !== null) stats.best = Math.max(stats.best, savedBest);
   let seenLaunches = pogo.launches;
+
+  let sinceSave = 0;
+  const save = () => {
+    if (!SAVES) return;
+    const run: RunSave = { version: SAVE_VERSION, level: LEVEL.id, pogo: pogo.snapshot(), yaw: orbit.yaw, stats };
+    writeStorage(RUN_KEY, JSON.stringify(run));
+    writeStorage(BEST_KEY, JSON.stringify({ height: stats.best }));
+    sinceSave = 0;
+  };
+  document.addEventListener("visibilitychange", () => {
+    if (document.visibilityState === "hidden") save();
+  });
+  window.addEventListener("pagehide", save);
+  const newRun = () => {
+    if (SAVES) {
+      writeStorage(RUN_KEY, null);
+      writeStorage(BEST_KEY, null);
+    }
+    pogo.reset(START);
+    orbit.yaw = 0;
+    stats = newStats(START.y);
+    seenLaunches = pogo.launches;
+  };
   const statsLabel = document.querySelector<HTMLDivElement>("#stats")!;
   let statsText = "";
+  // Adding 0 turns -0 into 0, so tiny negative heights never show as "-0.0".
+  const metres = (h: number) => `${(Math.round(h * 10) / 10 + 0).toFixed(1)} m`;
   const showStats = () => {
     const text = [
-      `height ${stats.height.toFixed(1)} m`,
-      `best   ${stats.best.toFixed(1)} m`,
+      `height ${metres(stats.height)}`,
+      `best   ${metres(stats.best)}`,
       `time   ${formatTime(stats.time)}`,
       `falls  ${stats.falls}`,
     ].join("\n");
@@ -96,7 +153,7 @@ async function boot(): Promise<void> {
 
   if (new URLSearchParams(location.search).has("debug")) {
     const { createDebugPanel } = await import("./ui/debugPanel.ts");
-    createDebugPanel(pogo, () => pogo.reset(START));
+    createDebugPanel(pogo, () => pogo.reset(START), newRun);
   }
 
   function resize(): void {
@@ -130,6 +187,8 @@ async function boot(): Promise<void> {
         seenLaunches = pogo.launches;
         stats = onLaunch(stats, pogo.groundY, FALL_HEIGHT);
       }
+      sinceSave += SIM_DT;
+      if (sinceSave >= SAVE_INTERVAL) save();
     }
 
     // Interpolate between the last two simulation states.

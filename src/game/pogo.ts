@@ -22,6 +22,7 @@ import {
   type Vec2,
   type Vec3,
 } from "../core/pogoCore.ts";
+import type { PogoState } from "../core/saveCore.ts";
 import type { PogoInput } from "./input.ts";
 
 /** Slowest horizontal speed that still counts as movement for recentering, m/s. */
@@ -142,6 +143,23 @@ export class Pogo {
     this.lastContact = null;
     this.steering = false;
     this.kickDir = { x: 0, z: 0 };
+  }
+
+  /** The state needed to continue later, for saving. */
+  snapshot(): PogoState {
+    const { charge, armed } = this.charge;
+    return { pos: this.pos, vel: this.vel, lean: this.lean, charge, armed, launchY: this.launchY, peakY: this.peakY };
+  }
+
+  /** Continues from a saved state. Keys are not held after a reload. */
+  restore(s: PogoState): void {
+    this.reset(s.pos);
+    this.pos = this.prevPos = { ...s.pos };
+    this.vel = { ...s.vel };
+    this.lean = this.prevLean = { ...s.lean };
+    this.charge = { charge: s.charge, armed: s.armed, held: false };
+    this.launchY = s.launchY;
+    this.peakY = s.peakY;
   }
 
   step(input: PogoInput, cameraYaw: number, dt: number): void {
