@@ -22,6 +22,10 @@ export interface PogoConfig {
   leanRate: number;
   /** How fast the lean returns to upright without input, degrees per second. */
   returnRate: number;
+  /** Mouse controls: lean change per pixel of mouse movement, degrees. */
+  mouseLeanSensitivity: number;
+  /** Mouse controls: a lean smaller than this counts as no direction pressed (brakes, no wall kick), degrees. */
+  mouseDeadzone: number;
   /** Fraction of incoming horizontal velocity kept on launch while steering, 0–1 (momentum). */
   keepHorizontal: number;
   /** Fraction kept when no direction was pressed during the flight: lets the pogo come to rest. */
@@ -73,6 +77,8 @@ export const DEFAULT_POGO: Readonly<PogoConfig> = {
   maxLean: 60,
   leanRate: 130,
   returnRate: 240,
+  mouseLeanSensitivity: 0.15,
+  mouseDeadzone: 5,
   keepHorizontal: 0.6,
   keepWithoutInput: 0.2,
   holdLeanInAir: true,

@@ -30,6 +30,8 @@ const POGO: ConfigGroup<PogoConfig> = {
     maxLean: [5, 80, 1],
     leanRate: [30, 720, 10],
     returnRate: [30, 720, 10],
+    mouseLeanSensitivity: [0.02, 0.6, 0.01],
+    mouseDeadzone: [0, 20, 0.5],
     keepHorizontal: [0, 0.95, 0.05],
     keepWithoutInput: [0, 0.95, 0.05],
     leanPush: [0, 2, 0.05],
@@ -51,7 +53,7 @@ const POGO: ConfigGroup<PogoConfig> = {
   folders: [
     ["Bounce", ["gravity", "idleHopApex", "normalApex", "chargedApex", "bounceRetain", "maxCarriedApex"]],
     ["Charge", ["chargeTime", "chargeCurve"]],
-    ["Lean", ["maxLean", "leanRate", "returnRate", "holdLeanInAir"]],
+    ["Lean", ["maxLean", "leanRate", "returnRate", "holdLeanInAir", "mouseLeanSensitivity", "mouseDeadzone"]],
     ["Momentum", ["keepHorizontal", "keepWithoutInput", "leanPush"]],
     ["Walls & slopes", ["wallAngle", "floorContactLimit", "slopeBlend", "wallKickFactor", "wallKickSpeed", "wallKickAngle"]],
     ["Bonk", ["bonkRestitution", "bonkKeep", "bonkMinSpeed", "bonkLockTime", "wallPushSpeed"]],

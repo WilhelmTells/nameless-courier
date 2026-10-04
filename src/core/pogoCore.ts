@@ -42,6 +42,23 @@ export function leanTarget(input: Vec2, yaw: number, maxLean: number): Vec2 {
 }
 
 /**
+ * Mouse lean: moves the world-space lean by a mouse movement of `dx`, `dy`
+ * pixels (right and down positive), turned by the camera `yaw` so that moving
+ * the mouse up leans away from the camera. `sensitivity` is degrees per pixel.
+ * The result is clamped to `maxLean` and stays where it is left.
+ */
+export function applyMouseLean(lean: Vec2, dx: number, dy: number, yaw: number, sensitivity: number, maxLean: number): Vec2 {
+  // Same camera basis as leanTarget: right = (cos, -sin), away = (-sin, -cos).
+  const right = dx * sensitivity;
+  const away = -dy * sensitivity;
+  const x = lean.x + right * Math.cos(yaw) - away * Math.sin(yaw);
+  const z = lean.z - right * Math.sin(yaw) - away * Math.cos(yaw);
+  const angle = Math.hypot(x, z);
+  const k = angle > maxLean ? maxLean / angle : 1;
+  return { x: x * k, z: z * k };
+}
+
+/**
  * Eases the lean towards the target at `leanRate` while input is held, or at
  * `returnRate` back to upright when it is not.
  */

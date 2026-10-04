@@ -2,6 +2,7 @@ import { test } from "node:test";
 import assert from "node:assert/strict";
 import { DEFAULT_POGO, SIM_HZ } from "../src/config.ts";
 import {
+  applyMouseLean,
   carriedApex,
   chargedApex,
   launchSpeed,
@@ -36,6 +37,37 @@ test("lean target: W leans away from the camera, diagonals are normalised", () =
   near(Math.hypot(d.x, d.z), 30);
   const none = leanTarget({ x: 0, z: 0 }, 0, 30);
   assert.deepEqual(none, { x: 0, z: 0 });
+});
+
+test("mouse up leans away from the camera, mouse right leans right", () => {
+  const up = applyMouseLean({ x: 0, z: 0 }, 0, -100, 0, 0.1, 60);
+  near(up.x, 0);
+  near(up.z, -10);
+  const right = applyMouseLean({ x: 0, z: 0 }, 100, 0, 0, 0.1, 60);
+  near(right.x, 10);
+  near(right.z, 0);
+});
+
+test("mouse lean follows camera yaw and matches the keyboard direction", () => {
+  const up = applyMouseLean({ x: 0, z: 0 }, 0, -100, Math.PI / 2, 0.1, 60);
+  const w = leanTarget({ x: 0, z: 1 }, Math.PI / 2, 10);
+  near(up.x, w.x);
+  near(up.z, w.z);
+});
+
+test("mouse lean is clamped to max lean and stays where it is left", () => {
+  const far = applyMouseLean({ x: 0, z: 0 }, 3000, -4000, 0, 0.1, 60);
+  near(Math.hypot(far.x, far.z), 60);
+  near(far.x / far.z, -3 / 4);
+  const still = applyMouseLean(far, 0, 0, 0, 0.1, 60);
+  assert.deepEqual(still, far);
+});
+
+test("moving the mouse back returns the lean to upright", () => {
+  const out = applyMouseLean({ x: 0, z: 0 }, 50, 80, 1.2, 0.1, 60);
+  const back = applyMouseLean(out, -50, -80, 1.2, 0.1, 60);
+  near(back.x, 0);
+  near(back.z, 0);
 });
 
 test("lean target follows camera yaw", () => {
