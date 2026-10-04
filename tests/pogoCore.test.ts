@@ -96,12 +96,14 @@ test("lean target follows camera yaw", () => {
 });
 
 test("lean eases at leanRate with input and returnRate without", () => {
+  // Fixed rates, so the first step stays short of the target whatever the defaults.
+  const rates = { leanRate: 200, returnRate: 240 };
   let lean = { x: 0, z: 0 };
-  lean = stepLean(lean, { x: 30, z: 0 }, true, 0.1, cfg);
-  near(lean.x, cfg.leanRate * 0.1);
-  lean = stepLean(lean, { x: 0, z: 0 }, false, 0.05, cfg);
-  near(lean.x, cfg.leanRate * 0.1 - cfg.returnRate * 0.05);
-  lean = stepLean(lean, { x: 0, z: 0 }, false, 1, cfg);
+  lean = stepLean(lean, { x: 30, z: 0 }, true, 0.1, rates);
+  near(lean.x, 20);
+  lean = stepLean(lean, { x: 0, z: 0 }, false, 0.05, rates);
+  near(lean.x, 20 - 12);
+  lean = stepLean(lean, { x: 0, z: 0 }, false, 1, rates);
   assert.deepEqual(lean, { x: 0, z: 0 });
 });
 
