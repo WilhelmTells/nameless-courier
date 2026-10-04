@@ -34,6 +34,8 @@ export interface PogoConfig {
   mouseLeanSensitivity: number;
   /** Mouse controls: a lean smaller than this counts as no direction pressed (brakes, no wall kick), degrees. */
   mouseDeadzone: number;
+  /** Mouse controls: moving the mouse up leans towards the camera instead of away. */
+  mouseInvertY: boolean;
   /** Fraction of incoming horizontal velocity kept on launch while steering, 0–1 (momentum). */
   keepHorizontal: number;
   /** Fraction kept when no direction was pressed during the flight: lets the pogo come to rest. */
@@ -88,6 +90,7 @@ export const DEFAULT_POGO: Readonly<PogoConfig> = {
   pivotHeight: 1.1,
   mouseLeanSensitivity: 0.15,
   mouseDeadzone: 5,
+  mouseInvertY: false,
   keepHorizontal: 0.6,
   keepWithoutInput: 0.2,
   holdLeanInAir: true,

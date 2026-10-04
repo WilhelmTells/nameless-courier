@@ -204,7 +204,7 @@ export class Pogo {
     this.setLean(
       locked
         ? stepLean(this.lean, NO_LEAN, false, dt, cfg)
-        : applyMouseLean(this.lean, input.mouse.dx, input.mouse.dy, cameraYaw, cfg.mouseLeanSensitivity, cfg.maxLean),
+        : applyMouseLean(this.lean, input.mouse.dx, cfg.mouseInvertY ? -input.mouse.dy : input.mouse.dy, cameraYaw, cfg.mouseLeanSensitivity, cfg.maxLean),
     );
     const angle = Math.hypot(this.lean.x, this.lean.z);
     this.steering = !locked && angle > cfg.mouseDeadzone;
