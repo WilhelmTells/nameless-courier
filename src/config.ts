@@ -77,6 +77,12 @@ export interface PogoConfig {
   bounceRetain: number;
   /** Highest apex a carried bounce can reach, m. */
   maxCarriedApex: number;
+  /** Time to get off the pogo at a rest spot, s. */
+  dismountTime: number;
+  /** Time to get back on, s; the first bounce after it starts from rest. */
+  mountTime: number;
+  /** Fastest horizontal speed at which a contact in a rest spot lets the courier get off, m/s. */
+  dismountMaxSpeed: number;
 }
 
 export const DEFAULT_POGO: Readonly<PogoConfig> = {
@@ -112,6 +118,9 @@ export const DEFAULT_POGO: Readonly<PogoConfig> = {
   wallPushSpeed: 2,
   bounceRetain: 0.5,
   maxCarriedApex: 5,
+  dismountTime: 0.5,
+  mountTime: 0.5,
+  dismountMaxSpeed: 3,
 };
 
 /** Live values. The debug panel changes these while the game runs. */

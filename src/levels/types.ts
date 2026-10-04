@@ -30,9 +30,21 @@ export interface Piece {
   material?: string;
 }
 
+/**
+ * A calm place where the courier can get off the pogo: a box region from
+ * `min` to `max`. `min.y` is the surface; the region reaches up above it so
+ * bounces stay inside.
+ */
+export interface RestSpot {
+  id: string;
+  min: Vec3;
+  max: Vec3;
+}
+
 export interface Level {
   id: string;
   name: string;
   start: Vec3;
   pieces: Piece[];
+  restSpots: RestSpot[];
 }

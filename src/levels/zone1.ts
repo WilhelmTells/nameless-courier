@@ -101,4 +101,8 @@ export const zone1: Level = {
   name: "Base",
   start: { x: 0, y: 0, z: 0 },
   pieces,
+  restSpots: [
+    { id: "yard-start", min: { x: -3, y: 0, z: -3 }, max: { x: 3, y: 3, z: 3 } },
+    { id: "zone-top", min: { x: 12, y: ROOF_B + 4, z: -56 }, max: { x: 15, y: ROOF_B + 7, z: -52 } },
+  ],
 };
