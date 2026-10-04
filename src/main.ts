@@ -96,6 +96,7 @@ async function boot(): Promise<void> {
   const up = new THREE.Vector3(0, 1, 0);
   const axis = new THREE.Vector3();
   const tip = new THREE.Vector3();
+  const rider = new THREE.Vector3();
   let accumulator = 0;
   let lastTime = performance.now();
 
@@ -129,7 +130,11 @@ async function boot(): Promise<void> {
     rig.scale.set(1 + 0.08 * sq, 1 - 0.15 * sq, 1 + 0.08 * sq);
 
     marker.update(tip);
-    orbit.update(frameDt, tip, marker.groundY, pogo.moveDir);
+    // The camera follows the rider, not the swinging tip: the point where the
+    // tip would be if the stick stood upright about the pivot.
+    const h = pogoConfig.pivotHeight;
+    rider.set(tip.x + s.x * h, tip.y + (s.y - 1) * h, tip.z + s.z * h);
+    orbit.update(frameDt, rider, marker.groundY, pogo.moveDir);
 
     chargeFill.style.width = `${pogo.charge.charge * 100}%`;
     chargeBar.classList.toggle("armed", pogo.charge.armed);

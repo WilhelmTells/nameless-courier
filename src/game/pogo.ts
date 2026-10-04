@@ -17,6 +17,7 @@ import {
   stepCharge,
   stepLean,
   stickAxis,
+  swingTip,
   type ChargeState,
   type Vec2,
   type Vec3,
@@ -32,6 +33,8 @@ const MAX_CONTACTS_PER_STEP = 4;
 /** Spawn height above the start point, m: starting in contact gives an unreliable first contact normal. */
 const SPAWN_LIFT = 0.01;
 const NO_LEAN: Vec2 = { x: 0, z: 0 };
+/** Largest lean change checked against the level at once while the stick swings, degrees. */
+const SWING_STEP = 2;
 
 /** A collision shape along the stick, `offset` metres from the tip to its centre. */
 interface Part {
@@ -183,9 +186,29 @@ export class Pogo {
     this.kickDir = this.steering ? { x: this.lean.x / angle, z: this.lean.z / angle } : NO_LEAN;
   }
 
-  /** The stick cannot turn into geometry; it stays put unless it is already stuck in it. */
+  /**
+   * Turns the stick about the rider (pivotHeight), which swings the tip. The
+   * swing is checked against the level in small steps and stops at the last
+   * free pose; it goes through freely only if the pogo is already stuck.
+   */
   private setLean(lean: Vec2): void {
-    if (!this.overlaps(lean) || this.overlaps(this.lean)) this.lean = lean;
+    const from = this.lean;
+    const start = this.pos;
+    const swingTo = (l: Vec2) => swingTip(start, from, l, cfg.pivotHeight);
+    if (this.overlaps(start, from)) {
+      this.pos = swingTo(lean);
+      this.lean = lean;
+      return;
+    }
+    const n = Math.ceil(angleBetween(stickAxis(from), stickAxis(lean)) / SWING_STEP);
+    for (let i = 1; i <= n; i++) {
+      const t = i / n;
+      const l = { x: from.x + (lean.x - from.x) * t, z: from.z + (lean.z - from.z) * t };
+      const p = swingTo(l);
+      if (this.overlaps(p, l)) return;
+      this.pos = p;
+      this.lean = l;
+    }
   }
 
   /** Moves along the flight path for `dt`, resolving contacts on the way. */
@@ -275,13 +298,12 @@ export class Pogo {
     return best;
   }
 
-  /** True when the shaft or body would overlap geometry at the current position with `lean`. */
-  private overlaps(lean: Vec2): boolean {
+  /** True when any part would overlap geometry with the tip at `tip` and the stick at `lean`. */
+  private overlaps(tip: Vec3, lean: Vec2): boolean {
     const axis = stickAxis(lean);
     const rot = rotationTo(axis);
     for (const p of this.parts) {
-      if (p.name === "tip") continue;
-      const centre = { x: this.pos.x + axis.x * p.offset, y: this.pos.y + axis.y * p.offset, z: this.pos.z + axis.z * p.offset };
+      const centre = { x: tip.x + axis.x * p.offset, y: tip.y + axis.y * p.offset, z: tip.z + axis.z * p.offset };
       if (this.world.intersectionWithShape(centre, rot, p.shape)) return true;
     }
     return false;

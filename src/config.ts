@@ -22,6 +22,11 @@ export interface PogoConfig {
   leanRate: number;
   /** How fast the lean returns to upright without input, degrees per second. */
   returnRate: number;
+  /**
+   * The stick turns about this point above the tip (the rider), m: leaning
+   * swings the tip instead of the rider. 0 turns it about the tip.
+   */
+  pivotHeight: number;
   /** Mouse controls: lean change per pixel of mouse movement, degrees. */
   mouseLeanSensitivity: number;
   /** Mouse controls: a lean smaller than this counts as no direction pressed (brakes, no wall kick), degrees. */
@@ -77,6 +82,7 @@ export const DEFAULT_POGO: Readonly<PogoConfig> = {
   maxLean: 60,
   leanRate: 130,
   returnRate: 240,
+  pivotHeight: 1.1,
   mouseLeanSensitivity: 0.15,
   mouseDeadzone: 5,
   keepHorizontal: 0.6,

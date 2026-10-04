@@ -15,6 +15,7 @@ import {
   stepCharge,
   stepLean,
   stickAxis,
+  swingTip,
   type ChargeState,
   type Vec3,
 } from "../src/core/pogoCore.ts";
@@ -68,6 +69,23 @@ test("moving the mouse back returns the lean to upright", () => {
   const back = applyMouseLean(out, -50, -80, 1.2, 0.1, 60);
   near(back.x, 0);
   near(back.z, 0);
+});
+
+test("swinging the stick keeps the pivot in place and moves the tip the other way", () => {
+  const tip = { x: 1, y: 2, z: 3 };
+  const lean = { x: 60, z: 0 };
+  const swung = swingTip(tip, { x: 0, z: 0 }, lean, 1.1);
+  const a = stickAxis(lean);
+  near(swung.x + a.x * 1.1, tip.x);
+  near(swung.y + a.y * 1.1, tip.y + 1.1);
+  near(swung.z + a.z * 1.1, tip.z);
+  near(swung.x, 1 - 1.1 * Math.sin(Math.PI / 3));
+  near(swung.y, 2 + 1.1 * (1 - Math.cos(Math.PI / 3)));
+});
+
+test("a pivot height of 0 turns the stick about its tip", () => {
+  const tip = { x: 1, y: 2, z: 3 };
+  assert.deepEqual(swingTip(tip, { x: 10, z: -20 }, { x: -40, z: 5 }, 0), tip);
 });
 
 test("lean target follows camera yaw", () => {

@@ -78,6 +78,22 @@ export function stepLean(
   return { x: current.x + dx * k, z: current.z + dz * k };
 }
 
+/**
+ * Tip position after the stick turns from lean `from` to lean `to` about a
+ * pivot `pivotHeight` metres up the stick (the rider). The pivot stays put,
+ * so tilting the top of the stick one way swings the tip the other way.
+ * A pivot height of 0 turns the stick about its tip.
+ */
+export function swingTip(tip: Vec3, from: Vec2, to: Vec2, pivotHeight: number): Vec3 {
+  const a = stickAxis(from);
+  const b = stickAxis(to);
+  return {
+    x: tip.x + (a.x - b.x) * pivotHeight,
+    y: tip.y + (a.y - b.y) * pivotHeight,
+    z: tip.z + (a.z - b.z) * pivotHeight,
+  };
+}
+
 /** Unit vector along the stick, from the tip upwards, for a lean in degrees. */
 export function stickAxis(lean: Vec2): Vec3 {
   const angle = Math.hypot(lean.x, lean.z);
