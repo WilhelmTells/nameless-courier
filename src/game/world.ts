@@ -7,6 +7,12 @@ import type { Level, Piece } from "../levels/types.ts";
 const PIECE_COLOR = 0x8a8a8d;
 /** Lighter edges keep platform borders readable. */
 const EDGE_COLOR = 0xc8c8c4;
+/** Rest spots: a pale outline with a faint fill on the surface. */
+const REST_COLOR = 0xe8e2c8;
+/** Lift above the surface so the mark does not flicker against it, m. */
+const REST_LIFT = 0.01;
+/** Gap between the outline and the edge of the spot, m. */
+const REST_INSET = 0.15;
 
 /** Wedge corners around the centre: low edge at +Z, high edge at -Z. */
 function rampPoints(hx: number, hy: number, hz: number): number[] {
@@ -57,6 +63,22 @@ function colliderFor(piece: Piece): RAPIER.ColliderDesc {
   }
 }
 
+/** Marks every rest spot of `level` on its surface: an outline and a faint fill. */
+function markRestSpots(level: Level, scene: THREE.Scene): void {
+  const line = new THREE.LineBasicMaterial({ color: REST_COLOR });
+  const fill = new THREE.MeshBasicMaterial({ color: REST_COLOR, transparent: true, opacity: 0.12, depthWrite: false });
+  for (const s of level.restSpots) {
+    const w = s.max.x - s.min.x - 2 * REST_INSET;
+    const d = s.max.z - s.min.z - 2 * REST_INSET;
+    const plane = new THREE.PlaneGeometry(w, d);
+    plane.rotateX(-Math.PI / 2);
+    const mark = new THREE.Mesh(plane, fill);
+    mark.add(new THREE.LineSegments(new THREE.EdgesGeometry(plane), line));
+    mark.position.set((s.min.x + s.max.x) / 2, s.min.y + REST_LIFT, (s.min.z + s.max.z) / 2);
+    scene.add(mark);
+  }
+}
+
 /** Adds every piece of `level` to the scene and the physics world. */
 export function buildLevel(level: Level, scene: THREE.Scene, physics: RAPIER.World): void {
   const material = new THREE.MeshLambertMaterial({ color: PIECE_COLOR });
@@ -78,4 +100,5 @@ export function buildLevel(level: Level, scene: THREE.Scene, physics: RAPIER.Wor
         .setRotation({ x: q.x, y: q.y, z: q.z, w: q.w }),
     );
   }
+  markRestSpots(level, scene);
 }
