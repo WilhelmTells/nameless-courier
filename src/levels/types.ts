@@ -8,8 +8,8 @@ export interface Vec3 {
 
 export type Surface = "normal" | "trampoline" | "mud";
 
-/** Moving obstacles come later; every piece is static for now. */
-export type Motion = { kind: "none" };
+export type { Motion } from "../core/motionCore.ts";
+import type { Motion } from "../core/motionCore.ts";
 
 export interface Piece {
   id: string;
