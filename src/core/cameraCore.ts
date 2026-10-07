@@ -26,6 +26,25 @@ export function recenterYaw(dir: Vec2): number | null {
   return Math.atan2(-dir.x, -dir.z);
 }
 
+/**
+ * Follow camera: eases `yaw` towards the yaw behind the world-space `lean`
+ * (degrees, see stickAxis), with time constant `time`. Leans within the
+ * deadzone, or pointing more than `maxAngle` degrees away from the camera's
+ * forward (back towards it), leave the yaw alone.
+ */
+export function followYaw(yaw: number, lean: Vec2, deadzone: number, maxAngle: number, time: number, dt: number): number {
+  if (Math.hypot(lean.x, lean.z) <= deadzone) return yaw;
+  const diff = wrapAngle((recenterYaw(lean) ?? yaw) - yaw);
+  if (Math.abs(diff) > maxAngle * DEG) return yaw;
+  const k = time > 0 ? 1 - Math.exp(-dt / time) : 1;
+  return wrapAngle(yaw + diff * k);
+}
+
+/** The drop the automatic tilt works with: none below `minDrop`, so normal bouncing never tilts. */
+export function tiltDrop(drop: number, minDrop: number): number {
+  return drop >= minDrop ? drop : 0;
+}
+
 /** Applies mouse movement to yaw and pitch. */
 export function applyMouse(
   yaw: number,

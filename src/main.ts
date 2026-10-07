@@ -265,7 +265,12 @@ async function boot(): Promise<void> {
     // tip would be if the stick stood upright about the pivot.
     const h = pogoConfig.pivotHeight;
     rider.set(tip.x + s.x * h, tip.y + (s.y - 1) * h, tip.z + s.z * h);
-    orbit.update(frameDt, rider, marker.groundY, pogo.moveDir);
+    // With mouse controls the camera turns behind the lean, and R puts it
+    // behind the lean too; otherwise R uses the last movement direction.
+    const mouseRiding = controlMode() === "mouse" && pogo.ride.phase === "riding";
+    const leaning = Math.hypot(pogo.lean.x, pogo.lean.z) > pogoConfig.mouseDeadzone;
+    const homeDir = mouseRiding && leaning ? pogo.lean : pogo.moveDir;
+    orbit.update(frameDt, rider, marker.groundY, homeDir, mouseRiding ? pogo.lean : null, pogoConfig.mouseDeadzone);
 
     showStats();
     showRideHint();

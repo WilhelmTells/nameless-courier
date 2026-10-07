@@ -86,11 +86,19 @@ const CAMERA: ConfigGroup<CameraConfig> = {
     pushOutRate: [0.5, 30, 0.5],
     markerViewAngle: [5, 30, 1],
     tiltRate: [10, 360, 5],
+    tiltMinDrop: [0, 10, 0.1],
+    pitchDefault: [-40, 75, 1],
+    distanceDefault: [1, 30, 0.1],
+    followTime: [0.05, 2, 0.05],
+    followMaxAngle: [0, 180, 5],
+    followDelay: [0, 5, 0.1],
   },
   folders: [
+    ["Camera: home (R)", ["pitchDefault", "distanceDefault"]],
+    ["Camera: turn with lean", ["followCamera", "followTime", "followMaxAngle", "followDelay"]],
     ["Camera: mouse", ["sensitivity", "invertY", "pitchMin", "pitchMax"]],
     ["Camera: distance", ["distanceMin", "distanceMax", "zoomStep", "collisionRadius", "pushOutRate"]],
-    ["Camera: follow", ["focusHeight", "verticalLag", "markerViewAngle", "tiltRate"]],
+    ["Camera: follow", ["focusHeight", "verticalLag", "markerViewAngle", "tiltRate", "tiltMinDrop"]],
   ],
 };
 

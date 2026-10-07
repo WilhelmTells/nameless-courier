@@ -3,6 +3,7 @@ import assert from "node:assert/strict";
 import { DEFAULT_CAMERA } from "../src/config.ts";
 import {
   applyMouse,
+  followYaw,
   applyZoom,
   markerScale,
   moveToward,
@@ -10,6 +11,7 @@ import {
   pitchToSeeBelow,
   recenterYaw,
   springArm,
+  tiltDrop,
   wrapAngle,
 } from "../src/core/cameraCore.ts";
 import { leanTarget } from "../src/core/pogoCore.ts";
@@ -82,4 +84,28 @@ test("marker shrinks with height", () => {
   assert.equal(markerScale(0), 1);
   near(markerScale(5), 0.8);
   near(markerScale(50), 0.6);
+});
+
+test("follow: the camera turns towards behind a sideways lean and settles there", () => {
+  // Camera at yaw 0 looks along -Z; a lean to +X is 90° to the right.
+  let yaw = 0;
+  for (let i = 0; i < 600; i++) yaw = followYaw(yaw, { x: 30, z: 0 }, 5, 100, 0.4, 1 / 120);
+  // Behind a +X lean means looking along +X.
+  assert.ok(Math.abs(yaw - recenterYaw({ x: 1, z: 0 })!) < 1e-3);
+  const one = followYaw(0, { x: 30, z: 0 }, 5, 100, 0.4, 1 / 120);
+  assert.ok(one !== 0 && Math.abs(one) < Math.PI / 2, "eases, does not snap");
+});
+
+test("follow: leans in the deadzone or back towards the camera are ignored", () => {
+  assert.equal(followYaw(0.3, { x: 3, z: 0 }, 5, 100, 0.4, 0.1), 0.3);
+  // Camera at yaw 0: a lean to +Z points back at the camera (180°).
+  assert.equal(followYaw(0, { x: 0, z: 30 }, 5, 100, 0.4, 0.1), 0);
+  // 120° off forward is past 100°.
+  assert.equal(followYaw(0, { x: 30 * Math.sin((120 * Math.PI) / 180), z: -30 * Math.cos((120 * Math.PI) / 180) }, 5, 100, 0.4, 0.1), 0);
+});
+
+test("tilt only works with drops of at least the minimum", () => {
+  assert.equal(tiltDrop(2.9, 3), 0);
+  assert.equal(tiltDrop(3, 3), 3);
+  assert.equal(tiltDrop(8, 3), 8);
 });

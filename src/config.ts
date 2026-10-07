@@ -157,13 +157,26 @@ export interface CameraConfig {
   markerViewAngle: number;
   /** How fast that automatic tilt eases in and out, degrees per second. */
   tiltRate: number;
+  /**
+   * The automatic tilt only acts when the surface below is at least this far
+   * below the focus point, m: charged jumps and falls, not normal bouncing.
+   */
+  tiltMinDrop: number;
+  /** Mouse controls: the camera turns to stay behind the lean. */
+  followCamera: boolean;
+  /** Time constant of that turn, s: smaller turns faster. */
+  followTime: number;
+  /** Leans further than this from the camera's forward (braking, tip swings) are not followed, degrees. */
+  followMaxAngle: number;
+  /** After turning the camera by hand, following waits this long, s. */
+  followDelay: number;
 }
 
 export const DEFAULT_CAMERA: Readonly<CameraConfig> = {
   sensitivity: 0.0025,
   invertY: false,
   pitchDefault: 15,
-  pitchMin: -10,
+  pitchMin: -40,
   pitchMax: 75,
   distanceDefault: 6.5,
   distanceMin: 4.2,
@@ -175,6 +188,11 @@ export const DEFAULT_CAMERA: Readonly<CameraConfig> = {
   pushOutRate: 6,
   markerViewAngle: 22,
   tiltRate: 90,
+  tiltMinDrop: 3,
+  followCamera: true,
+  followTime: 0.4,
+  followMaxAngle: 100,
+  followDelay: 1,
 };
 
 /** Live values. The debug panel changes these while the game runs. */

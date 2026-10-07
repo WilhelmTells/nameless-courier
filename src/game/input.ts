@@ -72,6 +72,11 @@ export function mouseOrbits(): boolean {
   return mode === "wasd" || rightHeld || standing;
 }
 
+/** True while the player turns the camera by hand with the right button (mouse controls). */
+export function orbitingByHand(): boolean {
+  return mode === "mouse" && rightHeld && !standing;
+}
+
 /** Tells the input whether the courier is off the pogo (the mouse then only orbits). */
 export function setStanding(value: boolean): void {
   if (value && !standing) mouseDx = mouseDy = 0;

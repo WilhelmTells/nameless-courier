@@ -1,7 +1,9 @@
 // Third-person orbit camera: mouse orbit with pointer lock (only while the
-// right button is held in mouse control mode), wheel zoom, recenter key,
-// spring arm against geometry, tilt during long falls.
-// It never turns horizontally by itself: lean is camera-relative.
+// right button is held in mouse control mode), wheel zoom, R for the home
+// view, spring arm against geometry, tilt during charged jumps and falls.
+// With mouse controls it turns to stay behind the lean (the mouse lean is
+// kept in world space, so turning the camera does not move it). With WASD
+// it never turns by itself: the keys lean relative to the camera.
 
 import * as THREE from "three";
 import RAPIER from "@dimforge/rapier3d-compat";
@@ -12,12 +14,14 @@ import {
   clamp,
   moveToward,
   orbitDirection,
+  followYaw,
   pitchToSeeBelow,
   recenterYaw,
   springArm,
+  tiltDrop,
 } from "../core/cameraCore.ts";
 import type { Vec2 } from "../core/pogoCore.ts";
-import { mouseOrbits } from "./input.ts";
+import { mouseOrbits, orbitingByHand } from "./input.ts";
 
 /** Closest the spring arm may pull the camera to the focus point, m. */
 const MIN_ARM = 0.5;
@@ -41,6 +45,8 @@ export class OrbitCamera {
   private mouseDy = 0;
   private wheel = 0;
   private recenter = false;
+  /** Time since the camera was last turned by hand, s. */
+  private sinceManual = Infinity;
 
   constructor(camera: THREE.PerspectiveCamera, canvas: HTMLCanvasElement, world: RAPIER.World) {
     this.camera = camera;
@@ -75,18 +81,36 @@ export class OrbitCamera {
    * Updates the camera once per rendered frame.
    * @param tip interpolated tip position
    * @param groundBelow height of the surface below the tip, or null if none
-   * @param moveDir last horizontal movement direction (unit or zero)
+   * @param homeDir direction R puts the camera behind (unit, any length or zero)
+   * @param followLean world-space lean to turn behind, or null for no following
+   * @param followDeadzone leans up to this angle are not followed, degrees
    */
-  update(frameDt: number, tip: THREE.Vector3, groundBelow: number | null, moveDir: Vec2): void {
+  update(
+    frameDt: number,
+    tip: THREE.Vector3,
+    groundBelow: number | null,
+    homeDir: Vec2,
+    followLean: Vec2 | null,
+    followDeadzone: number,
+  ): void {
     const dt = Math.max(0, frameDt);
+    const byHand = orbitingByHand();
+    this.sinceManual = byHand ? 0 : this.sinceManual + dt;
 
     ({ yaw: this.yaw, pitch: this.pitch } = applyMouse(this.yaw, this.pitch, this.mouseDx, this.mouseDy, cfg));
     this.mouseDx = this.mouseDy = 0;
     this.distance = applyZoom(this.distance, this.wheel, cfg);
     this.wheel = 0;
     if (this.recenter) {
-      this.yaw = recenterYaw(moveDir) ?? this.yaw;
+      // Home view: behind the aim, at the home pitch and distance.
+      this.yaw = recenterYaw(homeDir) ?? this.yaw;
+      this.pitch = cfg.pitchDefault;
+      this.distance = clamp(cfg.distanceDefault, cfg.distanceMin, cfg.distanceMax);
+      this.tilt = 0;
       this.recenter = false;
+    }
+    if (followLean && cfg.followCamera && this.sinceManual >= cfg.followDelay) {
+      this.yaw = followYaw(this.yaw, followLean, followDeadzone, cfg.followMaxAngle, cfg.followTime, dt);
     }
 
     // Vertical follow lags behind the bounce; horizontal follow is exact.
@@ -95,7 +119,7 @@ export class OrbitCamera {
     const focus = { x: tip.x, y: this.focusY, z: tip.z };
 
     // Orbit up just enough to keep the surface below the pogo in view.
-    const drop = groundBelow === null ? 0 : Math.max(0, this.focusY - groundBelow);
+    const drop = groundBelow === null || byHand ? 0 : tiltDrop(Math.max(0, this.focusY - groundBelow), cfg.tiltMinDrop);
     const needed = pitchToSeeBelow(this.pitch, this.arm, drop, cfg.markerViewAngle, cfg.pitchMax);
     this.tilt = moveToward(this.tilt, needed - this.pitch, cfg.tiltRate * dt);
 
