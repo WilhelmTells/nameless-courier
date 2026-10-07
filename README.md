@@ -9,7 +9,7 @@ who may not exist. One bad bounce can cost a lot of progress.
 **Movement playground** (test blocks, with the tuning panel):
 https://wilhelmtells.github.io/nameless-courier/?debug&level=playground
 
-Early prototype: the first zone in grey-box. Desktop browsers with keyboard
+Early prototype: the first three zones in grey-box. Desktop browsers with keyboard
 and mouse.
 
 ## Controls
