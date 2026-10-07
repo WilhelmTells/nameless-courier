@@ -9,7 +9,7 @@ who may not exist. One bad bounce can cost a lot of progress.
 **Movement playground** (test blocks, with the tuning panel):
 https://wilhelmtells.github.io/nameless-courier/?debug&level=playground
 
-Early prototype: the first three zones in grey-box. Desktop browsers with keyboard
+Early prototype: the first five zones in grey-box. Desktop browsers with keyboard
 and mouse.
 
 ## Controls
@@ -34,6 +34,11 @@ The pogo never stops bouncing. The lean at the moment the tip touches the
 ground decides where the next bounce goes; there is no control in the air.
 Leaning with your motion builds speed, leaning against it brakes.
 Only at a few calm spots can the courier get off and stand for a while.
+
+Higher up, the ground changes: pale tarp pads throw the courier much higher,
+dark mud swallows the bounce and the speed. Further still, old machinery keeps
+running for nobody: platforms carry you along, and anything that swings or
+turns will knock you off.
 
 ## Development
 
