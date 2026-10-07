@@ -11,7 +11,7 @@ import { controlMode, initInput, onControlModeChange, readInput, setStanding, ty
 import { LandingMarker } from "./game/landingMarker.ts";
 import { Pogo } from "./game/pogo.ts";
 import { buildLevel } from "./game/world.ts";
-import { DEFAULT_LEVEL, levelFromSearch } from "./levels/index.ts";
+import { DEFAULT_LEVEL, LEVEL_ALIASES, levelFromSearch } from "./levels/index.ts";
 import { createPogoRig } from "./render/pogoRig.ts";
 import { VERSION } from "./version.ts";
 
@@ -94,7 +94,7 @@ async function boot(): Promise<void> {
   scene.add(marker.group);
 
   let stats = newStats(START.y);
-  const saved = SAVES ? parseRun(readStorage(RUN_KEY), LEVEL.id) : null;
+  const saved = SAVES ? parseRun(readStorage(RUN_KEY), LEVEL.id, LEVEL_ALIASES) : null;
   if (saved) {
     pogo.restore(saved.pogo);
     orbit.yaw = saved.yaw;

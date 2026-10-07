@@ -2,12 +2,40 @@ import { test } from "node:test";
 import assert from "node:assert/strict";
 import { DEFAULT_LEVEL, LEVELS, levelFromSearch } from "../src/levels/index.ts";
 
-test("level comes from the URL, Zone 1 by default", () => {
-  assert.equal(DEFAULT_LEVEL.id, "zone1");
-  assert.equal(levelFromSearch("").id, "zone1");
+test("level comes from the URL, the structure by default", () => {
+  assert.equal(DEFAULT_LEVEL.id, "tower");
+  assert.equal(levelFromSearch("").id, "tower");
   assert.equal(levelFromSearch("?debug&level=playground").id, "playground");
-  assert.equal(levelFromSearch("?level=nope").id, "zone1");
-  assert.equal(levelFromSearch("?level=toString").id, "zone1");
+  assert.equal(levelFromSearch("?level=zone1").id, "tower");
+  assert.equal(levelFromSearch("?level=nope").id, "tower");
+  assert.equal(levelFromSearch("?level=toString").id, "tower");
+});
+
+test("the structure is its zones, in order, starting in Zone 1", () => {
+  const tower = LEVELS.tower;
+  assert.equal(tower.zones[0].id, "zone1");
+  assert.deepEqual(tower.start, tower.zones[0].start);
+  assert.equal(tower.pieces.length, tower.zones.reduce((n, z) => n + z.pieces.length, 0));
+  assert.equal(tower.restSpots.length, tower.zones.reduce((n, z) => n + z.restSpots.length, 0));
+});
+
+test("every zone starts inside a rest spot, on a surface", () => {
+  for (const level of Object.values(LEVELS)) {
+    for (const zone of level.zones) {
+      const s = zone.start;
+      const inSpot = level.restSpots.some(
+        (r) => s.x >= r.min.x && s.x <= r.max.x && s.y >= r.min.y && s.y <= r.max.y && s.z >= r.min.z && s.z <= r.max.z,
+      );
+      assert.ok(inSpot, `${zone.id} start in a rest spot`);
+      const onPiece = level.pieces.some(
+        (p) =>
+          Math.abs(p.position.y + p.size.y / 2 - s.y) < 1e-6 &&
+          Math.abs(s.x - p.position.x) <= p.size.x / 2 &&
+          Math.abs(s.z - p.position.z) <= p.size.z / 2,
+      );
+      assert.ok(s.y === 0 || onPiece, `${zone.id} start on a surface`);
+    }
+  }
 });
 
 test("every level has unique piece ids and positive sizes", () => {

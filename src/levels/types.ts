@@ -41,10 +41,17 @@ export interface RestSpot {
   max: Vec3;
 }
 
-export interface Level {
+/** One stretch of the climb, kept in its own file. */
+export interface Zone {
   id: string;
   name: string;
   start: Vec3;
   pieces: Piece[];
   restSpots: RestSpot[];
+}
+
+/** What the game builds and runs: one world, made of zones or standing alone. */
+export interface Level extends Zone {
+  /** The zones it is made of, in climbing order; empty for a test level. */
+  zones: readonly Zone[];
 }

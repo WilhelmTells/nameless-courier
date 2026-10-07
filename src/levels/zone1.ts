@@ -11,7 +11,7 @@
 // Overhangs and walls above the route stop the big skips: a full charge
 // under them hits them instead of clearing a whole section.
 
-import type { Level, Piece } from "./types.ts";
+import type { Piece, Zone } from "./types.ts";
 
 /** A box given by its extents, m. */
 function block(id: string, x0: number, x1: number, y0: number, y1: number, z0: number, z1: number): Piece {
@@ -107,7 +107,7 @@ const pieces: Piece[] = [
   block("rest-ledge", 16, 20, ROOF_A, ROOF_B + 4, -60, -56),
 ];
 
-export const zone1: Level = {
+export const zone1: Zone = {
   id: "zone1",
   name: "Base",
   start: { x: 0, y: 0, z: 0 },

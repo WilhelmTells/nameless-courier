@@ -65,8 +65,11 @@ function stats(v: unknown): RunStats | null {
   return { height, best, falls, fallRef, time };
 }
 
-/** The saved run for `level`, or null if there is none or it cannot be used. */
-export function parseRun(text: string | null, level: string): RunSave | null {
+/**
+ * The saved run for `level`, or null if there is none or it cannot be used.
+ * A save under an old id that `aliases` maps to `level` counts as `level`.
+ */
+export function parseRun(text: string | null, level: string, aliases: Readonly<Record<string, string>> = {}): RunSave | null {
   if (text === null) return null;
   let data: unknown;
   try {
@@ -74,7 +77,7 @@ export function parseRun(text: string | null, level: string): RunSave | null {
   } catch {
     return null;
   }
-  if (!isObj(data) || data.version !== SAVE_VERSION || data.level !== level) return null;
+  if (!isObj(data) || data.version !== SAVE_VERSION || (data.level !== level && !(typeof data.level === "string" && Object.hasOwn(aliases, data.level) && aliases[data.level] === level))) return null;
   const pogo = pogoState(data.pogo), s = stats(data.stats), yaw = num(data.yaw);
   if (!pogo || !s || yaw === null) return null;
   return { version: SAVE_VERSION, level, pogo, yaw, stats: s };

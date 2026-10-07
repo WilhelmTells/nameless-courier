@@ -36,6 +36,14 @@ test("no save, corrupt JSON, another level or version give no run", () => {
   assert.equal(parseRun(JSON.stringify({ ...run, version: 99 }), "zone1"), null);
 });
 
+test("a save under an old level id loads as the level it became", () => {
+  const aliases = { zone1: "tower" };
+  assert.equal(parseRun(JSON.stringify(run), "tower"), null);
+  assert.equal(parseRun(JSON.stringify(run), "tower", aliases)?.level, "tower");
+  assert.equal(parseRun(JSON.stringify(run), "playground", aliases), null);
+  assert.equal(parseRun(JSON.stringify({ ...run, level: "toString" }), "tower", aliases), null);
+});
+
 test("missing or malformed fields give no run", () => {
   const broken = [
     { ...run, pogo: { ...run.pogo, pos: { x: 1, y: "12", z: 0 } } },
