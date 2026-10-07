@@ -120,8 +120,13 @@ export class LevelWorld implements LevelInfo {
     this.add(mover.collider, mover.piece);
   }
 
+  /** The piece a collider belongs to; undefined for the ground. */
+  pieceOf(collider: RAPIER.Collider): Piece | undefined {
+    return this.pieces.get(collider.handle);
+  }
+
   surfaceOf(collider: RAPIER.Collider): Surface {
-    return this.pieces.get(collider.handle)?.surface ?? "normal";
+    return this.pieceOf(collider)?.surface ?? "normal";
   }
 
   /** Velocity of the piece at `point`, at the current time; zero for still pieces, m/s. */

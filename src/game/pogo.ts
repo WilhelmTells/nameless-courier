@@ -79,6 +79,12 @@ const PLAIN_LEVEL: LevelInfo = { surfaceOf: () => "normal", velocityAt: () => ZE
 
 /** Rounds of pushing the pogo out of moving pieces per step. */
 const MOVER_PASSES = 3;
+/** Riding without moving for this long means hanging on an edge (body on it, tip in the air), s. */
+const STALL_TIME = 0.3;
+/** Less movement than this in a step counts as not moving, m. */
+const STALL_MOVE = 1e-4;
+/** Speed of the nudge off an edge the pogo hangs on, m/s. */
+const STALL_PUSH = 1.5;
 
 /** First contact of a shape cast: which part, when (fraction of the move), the surface normal, what and where. */
 interface CastHit {
@@ -151,6 +157,8 @@ export class Pogo {
   private steering = false;
   /** Last direction pressed (unit vector) since the last launch; zero if none. Decides wall kicks. */
   private kickDir: Vec2 = { x: 0, z: 0 };
+  /** Time riding without moving, s. */
+  private stalled = 0;
 
   private world: RAPIER.World;
   private restSpots: readonly RestRegion[];
@@ -185,6 +193,7 @@ export class Pogo {
     this.kickDir = { x: 0, z: 0 };
     this.ride = { ...RIDING };
     this.surface = "normal";
+    this.stalled = 0;
   }
 
   /** True when the pogo is inside a rest spot, where the courier can get off. */
@@ -240,12 +249,17 @@ export class Pogo {
 
     this.bonkLock = Math.max(0, this.bonkLock - dt);
     this.hitByMovers();
+    this.pushOutOfLevel();
     const locked = this.bonkLock > 0;
     if (input.mode === "mouse") this.stepMouseLean(input, cameraYaw, locked, dt);
     else this.stepKeyLean(input, cameraYaw, locked, dt);
     this.charge = stepCharge(this.charge, input.charge, dt * surfaceChargeRate(this.surface, cfg), cfg);
 
+    const before = this.pos;
     this.move(dt);
+    const moved = Math.hypot(this.pos.x - before.x, this.pos.y - before.y, this.pos.z - before.z);
+    this.stalled = moved < STALL_MOVE ? this.stalled + dt : 0;
+    if (this.stalled >= STALL_TIME) this.nudgeOffEdge();
 
     this.sinceLaunch += dt;
     this.peakY = Math.max(this.peakY, this.pos.y);
@@ -408,6 +422,54 @@ export class Pogo {
     } else {
       this.bonk(stick, hit.normal, carrier);
     }
+  }
+
+  /**
+   * Pushes the pogo out of still geometry it has sunk into. A swing that
+   * starts in contact goes through freely (see setLean), which can leave a
+   * part a few millimetres inside a block; from there every cast would hit at
+   * once and the pogo could never move again.
+   */
+  private pushOutOfLevel(): void {
+    for (let pass = 0; pass < MOVER_PASSES; pass++) {
+      const axis = stickAxis(this.lean);
+      const rot = rotationTo(axis);
+      let deepest: { normal: Vec3; depth: number } | null = null;
+      for (const p of this.parts) {
+        const centre = add(this.pos, scale(axis, p.offset));
+        this.world.intersectionsWithShape(centre, rot, p.shape, (collider) => {
+          const c = collider.contactShape(p.shape, centre, rot, 0);
+          if (c && -c.distance > SKIN && (!deepest || -c.distance > deepest.depth)) {
+            deepest = { normal: { x: c.normal1.x, y: c.normal1.y, z: c.normal1.z }, depth: -c.distance };
+          }
+          return true;
+        });
+      }
+      if (!deepest) return;
+      const { normal, depth } = deepest as { normal: Vec3; depth: number };
+      this.pos = add(this.pos, scale(normal, depth + SKIN));
+    }
+  }
+
+  /**
+   * The pogo hangs on an edge: its body rests on it while the tip is in the
+   * air, so it never bounces again. Nudges it off sideways, away from the
+   * lean (the tip hangs on that side), or the nearest free way.
+   */
+  private nudgeOffEdge(): void {
+    this.stalled = 0;
+    const len = Math.hypot(this.lean.x, this.lean.z);
+    const away = len > 1 ? Math.atan2(-this.lean.z, -this.lean.x) : Math.atan2(this.moveDir.z, this.moveDir.x);
+    for (let k = 0; k < 8; k++) {
+      // Away first, then alternating either side of it.
+      const a = away + Math.ceil(k / 2) * (k % 2 ? 1 : -1) * (Math.PI / 4);
+      const dir = { x: Math.cos(a), y: 0, z: Math.sin(a) };
+      if (this.cast(scale(dir, 0.3))) continue;
+      this.pos = add(this.pos, scale(dir, 0.05));
+      this.vel = scale(dir, STALL_PUSH);
+      return;
+    }
+    this.pos = add(this.pos, { x: 0, y: 0.05, z: 0 });
   }
 
   /** Lands without launching and starts getting off. Counts as a launch from here for the run stats. */
