@@ -66,10 +66,28 @@ function createParts(): Part[] {
 export interface LevelInfo {
   /** Surface type of the piece a collider belongs to. */
   surfaceOf(collider: RAPIER.Collider): Surface;
+  /** Velocity of the piece at a world point, now; zero for still pieces, m/s. */
+  velocityAt(collider: RAPIER.Collider, point: Vec3): Vec3;
+  /** The pieces that move. */
+  readonly movers: readonly { collider: RAPIER.Collider }[];
 }
 
-/** A level without surface types: everything is normal. */
-const PLAIN_LEVEL: LevelInfo = { surfaceOf: () => "normal" };
+const ZERO: Vec3 = { x: 0, y: 0, z: 0 };
+
+/** A level without surface types or moving pieces. */
+const PLAIN_LEVEL: LevelInfo = { surfaceOf: () => "normal", velocityAt: () => ZERO, movers: [] };
+
+/** Rounds of pushing the pogo out of moving pieces per step. */
+const MOVER_PASSES = 3;
+
+/** First contact of a shape cast: which part, when (fraction of the move), the surface normal, what and where. */
+interface CastHit {
+  part: Part["name"];
+  toi: number;
+  normal: Vec3;
+  collider: RAPIER.Collider;
+  point: Vec3;
+}
 
 export type ContactKind = "floor" | "wall" | "bonk";
 
@@ -221,6 +239,7 @@ export class Pogo {
     }
 
     this.bonkLock = Math.max(0, this.bonkLock - dt);
+    this.hitByMovers();
     const locked = this.bonkLock > 0;
     if (input.mode === "mouse") this.stepMouseLean(input, cameraYaw, locked, dt);
     else this.stepKeyLean(input, cameraYaw, locked, dt);
@@ -319,26 +338,75 @@ export class Pogo {
 
       const stick = stickAxis(this.lean);
       const n = hit.normal;
-      const approaching = disp.x * n.x + disp.y * n.y + disp.z * n.z < 0;
+      const carrier = this.level.velocityAt(hit.collider, hit.point);
+      const moving = carrier.x !== 0 || carrier.y !== 0 || carrier.z !== 0;
+      // On a moving piece what counts is the motion relative to it.
+      const rel = moving ? sub(this.vel, carrier) : disp;
+      const approaching = rel.x * n.x + rel.y * n.y + rel.z * n.z < 0;
       // Touching a wall with a direction pressed away from it kicks off it, whatever part touches.
       if (wallKickAllowed(this.kickDir, n, cfg)) {
-        this.launch(stick, n, "wall");
+        this.launch(stick, n, "wall", "normal", carrier);
         return;
       }
       if (hit.part === "tip" && approaching && tipContactValid(stick, n, cfg)) {
-        if (canDismount(this.ride, this.inRestSpot(), Math.hypot(this.vel.x, this.vel.z), cfg)) this.getOff(stick, n);
-        else this.launch(stick, n, "floor", this.level.surfaceOf(hit.collider));
+        const relSpeed = Math.hypot(this.vel.x - carrier.x, this.vel.z - carrier.z);
+        if (canDismount(this.ride, this.inRestSpot(), relSpeed, cfg)) this.getOff(stick, n);
+        else this.launch(stick, n, "floor", this.level.surfaceOf(hit.collider), carrier);
         return;
       }
-      const bonk = bonkVelocity(this.vel, n, cfg);
-      this.vel = bonk.vel;
-      if (bonk.hard) {
-        this.bonkLock = cfg.bonkLockTime;
-        this.steering = false;
-        this.kickDir = NO_LEAN;
-        this.lastContact = { kind: "bonk", angle: angleBetween(stick, n) };
-      }
+      this.bonk(stick, n, carrier);
+      // A moving surface does not stay put to slide along: stop here for this step.
+      if (moving) return;
       planes.push(n);
+    }
+  }
+
+  /** Bonk off a surface moving at `carrier`: the bounce is worked out relative to it. */
+  private bonk(stick: Vec3, n: Vec3, carrier: Vec3): void {
+    const bonk = bonkVelocity(sub(this.vel, carrier), n, cfg);
+    this.vel = add(bonk.vel, carrier);
+    if (bonk.hard) {
+      this.bonkLock = cfg.bonkLockTime;
+      this.steering = false;
+      this.kickDir = NO_LEAN;
+      this.lastContact = { kind: "bonk", angle: angleBetween(stick, n) };
+    }
+  }
+
+  /**
+   * Moving pieces may have moved into the pogo since the last step. Pushes
+   * it out; a tip pushed up from below bounces off the piece, anything else
+   * is knocked away with the piece's speed. The step then moves on as usual.
+   */
+  private hitByMovers(): void {
+    if (this.level.movers.length === 0) return;
+    let hit: { part: Part["name"]; normal: Vec3; collider: RAPIER.Collider; point: Vec3 } | null = null;
+    for (let pass = 0; pass < MOVER_PASSES; pass++) {
+      const axis = stickAxis(this.lean);
+      const rot = rotationTo(axis);
+      let moved = false;
+      for (const { collider } of this.level.movers) {
+        for (const p of this.parts) {
+          const centre = add(this.pos, scale(axis, p.offset));
+          const c = collider.contactShape(p.shape, centre, rot, 0);
+          if (!c || c.distance >= 0) continue;
+          const n = { x: c.normal1.x, y: c.normal1.y, z: c.normal1.z };
+          this.pos = add(this.pos, scale(n, -c.distance + SKIN));
+          moved = true;
+          // The tip counts first: it decides between a bounce and a knock.
+          if (!hit || (p.name === "tip" && hit.part !== "tip")) hit = { part: p.name, normal: n, collider, point: c.point1 };
+          break;
+        }
+      }
+      if (!moved) break;
+    }
+    if (!hit) return;
+    const stick = stickAxis(this.lean);
+    const carrier = this.level.velocityAt(hit.collider, hit.point);
+    if (hit.part === "tip" && tipContactValid(stick, hit.normal, cfg)) {
+      this.launch(stick, hit.normal, "floor", this.level.surfaceOf(hit.collider), carrier);
+    } else {
+      this.bonk(stick, hit.normal, carrier);
     }
   }
 
@@ -355,8 +423,13 @@ export class Pogo {
     this.launches++;
   }
 
-  /** Wall kicks ignore the surface type; floor bounces use it. */
-  private launch(stick: Vec3, normal: Vec3, kind: "floor" | "wall", surface: Surface = "normal"): void {
+  /**
+   * Wall kicks ignore the surface type; floor bounces use it. `carrier` is the
+   * velocity of the surface: the launch is worked out relative to it and then
+   * carried along (riding a moving platform, a rising piston throws higher).
+   */
+  private launch(stick: Vec3, normal: Vec3, kind: "floor" | "wall", surface: Surface = "normal", carrier: Vec3 = ZERO): void {
+    const incoming = sub(this.vel, carrier);
     // Floor bounces carry part of the fall; wall kicks drop the falling speed.
     const carried = kind === "floor" ? carriedApex(this.peakY - this.pos.y, cfg) : 0;
     const bounce = resolveBounce(this.charge, cfg, carried);
@@ -364,12 +437,12 @@ export class Pogo {
     const keep = { ...cfg, keepHorizontal: surfaceKeep(momentumKeep(this.steering, cfg), surface, cfg) };
     this.steering = false;
     if (kind === "wall") {
-      this.vel = wallKick(this.kickDir, normal, bounce.apex, this.vel, keep);
+      this.vel = add(wallKick(this.kickDir, normal, bounce.apex, incoming, keep), carrier);
     } else {
       this.surface = surface;
       const speed = launchSpeed(bounce.apex, cfg.gravity) * surfaceLaunchFactor(surface, cfg);
-      const flat = launchVelocity(this.lean, speed, this.vel, keep);
-      this.vel = slopeLaunch(flat, normal, cfg.slopeBlend);
+      const flat = launchVelocity(this.lean, speed, incoming, keep);
+      this.vel = add(slopeLaunch(flat, normal, cfg.slopeBlend), carrier);
     }
     this.kickDir = NO_LEAN;
     this.lastContact = { kind, angle: angleBetween(stick, normal) };
@@ -380,16 +453,17 @@ export class Pogo {
   }
 
   /** Earliest contact of any part moving by `disp` (fraction of `disp`); the tip wins ties. */
-  private cast(disp: Vec3): { part: Part["name"]; toi: number; normal: Vec3; collider: RAPIER.Collider } | null {
+  private cast(disp: Vec3): CastHit | null {
     const axis = stickAxis(this.lean);
     const rot = rotationTo(axis);
-    let best: { part: Part["name"]; toi: number; normal: Vec3; collider: RAPIER.Collider } | null = null;
+    let best: CastHit | null = null;
     for (const p of this.parts) {
       const centre = { x: this.pos.x + axis.x * p.offset, y: this.pos.y + axis.y * p.offset, z: this.pos.z + axis.z * p.offset };
       const hit = this.world.castShape(centre, rot, disp, p.shape, 0, 1, false);
       if (hit && (!best || hit.time_of_impact < best.toi - 1e-6)) {
         const n = hit.normal1;
-        best = { part: p.name, toi: hit.time_of_impact, normal: { x: n.x, y: n.y, z: n.z }, collider: hit.collider };
+        const w = hit.witness1;
+        best = { part: p.name, toi: hit.time_of_impact, normal: { x: n.x, y: n.y, z: n.z }, collider: hit.collider, point: { x: w.x, y: w.y, z: w.z } };
       }
     }
     return best;
