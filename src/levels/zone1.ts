@@ -6,31 +6,14 @@
 // terrace and a fall from a higher one lands on a lower one:
 //   A (base)  x -24..24, z -60..-16, top 10
 //   B         x -24..20, z -60..-22, top 22 (gap at the side, crossed on pads)
-//   C         x -24..16, z -60..-28, top 70 (the rest of the tower)
+//   C         x -24..16, z -60..-28, solid up to 50; Zone 2 climbs its back,
+//             Zone 3 is the hollow storeys above
 //
 // Overhangs and walls above the route stop the big skips: a full charge
 // under them hits them instead of clearing a whole section.
 
+import { block, ramp } from "./shapes.ts";
 import type { Piece, Zone } from "./types.ts";
-
-/** A box given by its extents, m. */
-function block(id: string, x0: number, x1: number, y0: number, y1: number, z0: number, z1: number): Piece {
-  return {
-    id,
-    shape: "box",
-    position: { x: (x0 + x1) / 2, y: (y0 + y1) / 2, z: (z0 + z1) / 2 },
-    rotation: { x: 0, y: 0, z: 0 },
-    size: { x: x1 - x0, y: y1 - y0, z: z1 - z0 },
-    surface: "normal",
-    motion: { kind: "none" },
-  };
-}
-
-/** A ramp on the ground, its high edge towards -Z. */
-function ramp(id: string, x: number, z: number, angle: number, height: number, width: number): Piece {
-  const depth = height / Math.tan((angle * Math.PI) / 180);
-  return { ...block(id, x - width / 2, x + width / 2, 0, height, z - depth / 2, z + depth / 2), shape: "ramp" };
-}
 
 const FACE_A = -16;
 const FACE_B = -22;
@@ -103,7 +86,7 @@ const pieces: Piece[] = [
   block("block-b-side-2", 16, 20, ROOF_A, ROOF_B, -56, -45.5),
 
   // Block C, the rest of the tower, and the rest ledge at the top of the zone.
-  block("block-c", -24, 16, ROOF_B, 70, -60, -28),
+  block("block-c", -24, 16, ROOF_B, 50, -60, -28),
   block("rest-ledge", 16, 20, ROOF_A, ROOF_B + 4, -60, -56),
 ];
 
