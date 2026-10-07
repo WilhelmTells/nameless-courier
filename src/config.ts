@@ -51,6 +51,8 @@ export interface PogoConfig {
   leanPush: number;
   /** Length of the visual squash on launch, s. Does not affect physics. */
   squashTime: number;
+  /** Visual only: time constant of the courier turning to face the lean, s. */
+  turnTime: number;
   /** Surfaces whose normal is more than this far from up are walls, degrees. */
   wallAngle: number;
   /** Largest angle between stick and surface normal for a bounce on floors and slopes, degrees. */
@@ -105,6 +107,7 @@ export const DEFAULT_POGO: Readonly<PogoConfig> = {
   holdLeanInAir: true,
   leanPush: 1,
   squashTime: 0.08,
+  turnTime: 0.2,
   wallAngle: 60,
   floorContactLimit: 65,
   slopeBlend: 0.5,

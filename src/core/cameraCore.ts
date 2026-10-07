@@ -29,8 +29,9 @@ export function recenterYaw(dir: Vec2): number | null {
 /**
  * Follow camera: eases `yaw` towards the yaw behind the world-space `lean`
  * (degrees, see stickAxis), with time constant `time`. Leans within the
- * deadzone, or pointing more than `maxAngle` degrees away from the camera's
- * forward (back towards it), leave the yaw alone.
+ * deadzone, or pointing more than `maxAngle` degrees away from the forward
+ * of `yaw` (back towards the camera), leave the yaw alone. The courier's
+ * facing uses the same rule, so braking does not turn them around.
  */
 export function followYaw(yaw: number, lean: Vec2, deadzone: number, maxAngle: number, time: number, dt: number): number {
   if (Math.hypot(lean.x, lean.z) <= deadzone) return yaw;

@@ -40,6 +40,7 @@ const POGO: ConfigGroup<PogoConfig> = {
     keepWithoutInput: [0, 0.95, 0.05],
     leanPush: [0, 2, 0.05],
     squashTime: [0, 0.3, 0.01],
+    turnTime: [0.02, 1, 0.01],
     wallAngle: [30, 89, 1],
     floorContactLimit: [20, 90, 1],
     slopeBlend: [0, 1, 0.05],
@@ -65,7 +66,7 @@ const POGO: ConfigGroup<PogoConfig> = {
     ["Walls & slopes", ["wallAngle", "floorContactLimit", "slopeBlend", "wallKickFactor", "wallKickSpeed", "wallKickAngle"]],
     ["Bonk", ["bonkRestitution", "bonkKeep", "bonkMinSpeed", "bonkLockTime", "wallPushSpeed"]],
     ["Rest", ["dismountTime", "mountTime", "dismountMaxSpeed"]],
-    ["Visual", ["squashTime"]],
+    ["Visual", ["squashTime", "turnTime"]],
   ],
 };
 

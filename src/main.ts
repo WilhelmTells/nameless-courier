@@ -4,6 +4,7 @@ import { FALL_HEIGHT, pogoConfig, SIM_HZ } from "./config.ts";
 import { formatTime, newStats, onLaunch } from "./core/fallCore.ts";
 import { parseBest, parseRun, SAVE_VERSION, type RunSave } from "./core/saveCore.ts";
 import { advanceLoop } from "./core/loopCore.ts";
+import { followYaw } from "./core/cameraCore.ts";
 import { stickAxis } from "./core/pogoCore.ts";
 import { standAmount } from "./core/restCore.ts";
 import { OrbitCamera } from "./game/camera.ts";
@@ -27,6 +28,8 @@ const RUN_KEY = "courier.run";
 const BEST_KEY = "courier.best";
 /** Simulation time between saves, s. */
 const SAVE_INTERVAL = 1;
+/** The courier turns towards leans within this angle of where they face; further back (braking) they keep facing, degrees. */
+const FACING_MAX_ANGLE = 100;
 
 function readStorage(key: string): string | null {
   try {
@@ -207,6 +210,9 @@ async function boot(): Promise<void> {
   window.addEventListener("resize", resize);
   resize();
 
+  // The courier faces where they lean (visual only); braking leans back do not turn them.
+  let facing = orbit.yaw;
+  const facingTurn = new THREE.Quaternion();
   const up = new THREE.Vector3(0, 1, 0);
   const axis = new THREE.Vector3();
   const tip = new THREE.Vector3();
@@ -253,7 +259,10 @@ async function boot(): Promise<void> {
       z: pogo.prevLean.z + (pogo.lean.z - pogo.prevLean.z) * a,
     });
     rig.group.position.copy(tip);
-    rig.group.quaternion.setFromUnitVectors(up, axis.set(s.x, s.y, s.z));
+    facing = followYaw(facing, pogo.lean, pogoConfig.mouseDeadzone, FACING_MAX_ANGLE, pogoConfig.turnTime, Math.max(0, frameDt));
+    rig.group.quaternion
+      .setFromUnitVectors(up, axis.set(s.x, s.y, s.z))
+      .multiply(facingTurn.setFromAxisAngle(up, facing));
     rig.setStand(standAmount(pogo.ride, pogoConfig));
 
     // Squash and stretch on launch (visual only).
