@@ -20,14 +20,15 @@ and mouse.
 | Space (hold, release) | Charge a big jump |
 | Mouse | Orbit the camera (click to capture the mouse) |
 | Mouse wheel | Zoom |
-| R | Put the camera behind your direction of movement |
+| R | Reset the camera: behind you, at the usual angle and distance |
 | Esc | Release the mouse |
 | C | Switch between keyboard and mouse controls |
 | E | Get off the pogo at a calm spot, and back on |
 
 **Mouse controls** (press C): moving the mouse tilts the stick, which stays
 where you leave it. Hold the left button (or Space) to charge, and hold the
-right button to orbit the camera.
+right button to orbit the camera. The camera turns to stay behind the
+direction you lean.
 
 The pogo never stops bouncing. The lean at the moment the tip touches the
 ground decides where the next bounce goes; there is no control in the air.
