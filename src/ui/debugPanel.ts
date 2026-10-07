@@ -57,6 +57,10 @@ const POGO: ConfigGroup<PogoConfig> = {
     dismountTime: [0, 2, 0.05],
     mountTime: [0, 2, 0.05],
     dismountMaxSpeed: [0, 10, 0.5],
+    trampolineFactor: [1, 3, 0.05],
+    mudFactor: [0.1, 1, 0.05],
+    mudChargeRate: [0.1, 1, 0.05],
+    mudKeep: [0, 0.95, 0.05],
   },
   folders: [
     ["Bounce", ["gravity", "idleHopApex", "normalApex", "chargedApex", "bounceRetain", "maxCarriedApex"]],
@@ -66,6 +70,7 @@ const POGO: ConfigGroup<PogoConfig> = {
     ["Walls & slopes", ["wallAngle", "floorContactLimit", "slopeBlend", "wallKickFactor", "wallKickSpeed", "wallKickAngle"]],
     ["Bonk", ["bonkRestitution", "bonkKeep", "bonkMinSpeed", "bonkLockTime", "wallPushSpeed"]],
     ["Rest", ["dismountTime", "mountTime", "dismountMaxSpeed"]],
+    ["Surfaces", ["trampolineFactor", "mudFactor", "mudChargeRate", "mudKeep"]],
     ["Visual", ["squashTime", "turnTime"]],
   ],
 };

@@ -1,6 +1,7 @@
 // Pure pogo rules: launch, charge, lean. Numbers in, numbers out.
 
 import type { PogoConfig } from "../config.ts";
+import type { Surface } from "../levels/types.ts";
 
 export interface Vec2 {
   x: number;
@@ -178,6 +179,23 @@ export function launchVelocity(
     y: speed,
     z: lean.z * push + incoming.z * cfg.keepHorizontal,
   };
+}
+
+type SurfaceConfig = Pick<PogoConfig, "trampolineFactor" | "mudFactor" | "mudChargeRate" | "mudKeep">;
+
+/** Launch speed multiplier of a surface: trampolines throw harder, mud softer. */
+export function surfaceLaunchFactor(surface: Surface, cfg: SurfaceConfig): number {
+  return surface === "trampoline" ? cfg.trampolineFactor : surface === "mud" ? cfg.mudFactor : 1;
+}
+
+/** How fast the charge fills after a bounce from `surface`, as a multiple of normal. */
+export function surfaceChargeRate(surface: Surface, cfg: SurfaceConfig): number {
+  return surface === "mud" ? cfg.mudChargeRate : 1;
+}
+
+/** Share of horizontal speed kept on launch from `surface`: mud keeps at most mudKeep. */
+export function surfaceKeep(keep: number, surface: Surface, cfg: SurfaceConfig): number {
+  return surface === "mud" ? Math.min(keep, cfg.mudKeep) : keep;
 }
 
 /**

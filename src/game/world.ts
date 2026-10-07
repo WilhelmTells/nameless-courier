@@ -1,12 +1,19 @@
-// Builds meshes and fixed colliders from level data.
+// Builds meshes and colliders from level data.
 
 import * as THREE from "three";
 import RAPIER from "@dimforge/rapier3d-compat";
-import type { Level, Piece } from "../levels/types.ts";
+import type { Level, Piece, Surface } from "../levels/types.ts";
+import type { LevelInfo } from "./pogo.ts";
 
 const PIECE_COLOR = 0x8a8a8d;
 /** Lighter edges keep platform borders readable. */
 const EDGE_COLOR = 0xc8c8c4;
+/** Surfaces read at a glance: a pale taut tarp with a bright trim, near-black glossy mud. */
+const SURFACE_LOOK: Record<Surface, { color: number; edge: number }> = {
+  normal: { color: PIECE_COLOR, edge: EDGE_COLOR },
+  trampoline: { color: 0xd9c9a3, edge: 0xffb340 },
+  mud: { color: 0x26221e, edge: 0x5a5046 },
+};
 /** Rest spots: a pale outline with a faint fill on the surface. */
 const REST_COLOR = 0xe8e2c8;
 /** Lift above the surface so the mark does not flicker against it, m. */
@@ -79,26 +86,54 @@ function markRestSpots(level: Level, scene: THREE.Scene): void {
   }
 }
 
+/** The built level: what the pogo needs to know about its pieces. */
+export class LevelWorld implements LevelInfo {
+  private pieces = new Map<number, Piece>();
+
+  add(collider: RAPIER.Collider, piece: Piece): void {
+    this.pieces.set(collider.handle, piece);
+  }
+
+  surfaceOf(collider: RAPIER.Collider): Surface {
+    return this.pieces.get(collider.handle)?.surface ?? "normal";
+  }
+}
+
 /** Adds every piece of `level` to the scene and the physics world. */
-export function buildLevel(level: Level, scene: THREE.Scene, physics: RAPIER.World): void {
-  const material = new THREE.MeshLambertMaterial({ color: PIECE_COLOR });
-  const edgeMaterial = new THREE.LineBasicMaterial({ color: EDGE_COLOR });
+export function buildLevel(level: Level, scene: THREE.Scene, physics: RAPIER.World): LevelWorld {
+  const looks = new Map<Surface, { mesh: THREE.Material; edge: THREE.Material }>();
+  const lookFor = (surface: Surface) => {
+    let look = looks.get(surface);
+    if (!look) {
+      const { color, edge } = SURFACE_LOOK[surface];
+      look = {
+        mesh: surface === "mud" ? new THREE.MeshPhongMaterial({ color, shininess: 80, specular: 0x6a6258 }) : new THREE.MeshLambertMaterial({ color }),
+        edge: new THREE.LineBasicMaterial({ color: edge }),
+      };
+      looks.set(surface, look);
+    }
+    return look;
+  };
   const DEG = Math.PI / 180;
+  const built = new LevelWorld();
 
   for (const piece of level.pieces) {
+    const look = lookFor(piece.surface);
     const geo = geometryFor(piece);
-    const mesh = new THREE.Mesh(geo, material);
+    const mesh = new THREE.Mesh(geo, look.mesh);
     mesh.position.set(piece.position.x, piece.position.y, piece.position.z);
     mesh.rotation.set(piece.rotation.x * DEG, piece.rotation.y * DEG, piece.rotation.z * DEG);
-    mesh.add(new THREE.LineSegments(new THREE.EdgesGeometry(geo, 30), edgeMaterial));
+    mesh.add(new THREE.LineSegments(new THREE.EdgesGeometry(geo, 30), look.edge));
     scene.add(mesh);
 
     const q = mesh.quaternion;
-    physics.createCollider(
+    const collider = physics.createCollider(
       colliderFor(piece)
         .setTranslation(piece.position.x, piece.position.y, piece.position.z)
         .setRotation({ x: q.x, y: q.y, z: q.z, w: q.w }),
     );
+    built.add(collider, piece);
   }
   markRestSpots(level, scene);
+  return built;
 }

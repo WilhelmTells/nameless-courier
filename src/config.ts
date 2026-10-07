@@ -85,6 +85,14 @@ export interface PogoConfig {
   mountTime: number;
   /** Fastest horizontal speed at which a contact in a rest spot lets the courier get off, m/s. */
   dismountMaxSpeed: number;
+  /** Launch speed from a trampoline pad as a multiple of the normal launch. */
+  trampolineFactor: number;
+  /** Launch speed from mud as a multiple of the normal launch. */
+  mudFactor: number;
+  /** How fast the charge fills after a bounce from mud, as a multiple of normal. */
+  mudChargeRate: number;
+  /** Fraction of incoming horizontal velocity kept on launch from mud, 0–1: mud sticks. */
+  mudKeep: number;
 }
 
 export const DEFAULT_POGO: Readonly<PogoConfig> = {
@@ -124,6 +132,10 @@ export const DEFAULT_POGO: Readonly<PogoConfig> = {
   dismountTime: 0.5,
   mountTime: 0.5,
   dismountMaxSpeed: 3,
+  trampolineFactor: 1.6,
+  mudFactor: 0.5,
+  mudChargeRate: 0.5,
+  mudKeep: 0.1,
 };
 
 /** Live values. The debug panel changes these while the game runs. */

@@ -15,6 +15,9 @@ import {
   stepCharge,
   stepLean,
   stickAxis,
+  surfaceChargeRate,
+  surfaceKeep,
+  surfaceLaunchFactor,
   swingTip,
   type ChargeState,
   type Vec3,
@@ -220,4 +223,19 @@ test("letting go of the keys brakes: less momentum is kept without steering", ()
   assert.equal(momentumKeep(true, cfg), cfg.keepHorizontal);
   assert.equal(momentumKeep(false, cfg), cfg.keepWithoutInput);
   assert.ok(cfg.keepWithoutInput < cfg.keepHorizontal);
+});
+
+test("surfaces: trampolines throw harder, mud softer, slower to charge and sticky", () => {
+  assert.equal(surfaceLaunchFactor("normal", cfg), 1);
+  assert.equal(surfaceLaunchFactor("trampoline", cfg), cfg.trampolineFactor);
+  assert.equal(surfaceLaunchFactor("mud", cfg), cfg.mudFactor);
+  // Launch speed × 1.6 multiplies the apex by 1.6².
+  const v = launchSpeed(cfg.normalApex, cfg.gravity) * cfg.trampolineFactor;
+  near((v * v) / (2 * cfg.gravity), cfg.normalApex * cfg.trampolineFactor ** 2);
+  assert.equal(surfaceChargeRate("normal", cfg), 1);
+  assert.equal(surfaceChargeRate("mud", cfg), cfg.mudChargeRate);
+  assert.equal(surfaceKeep(0.6, "normal", cfg), 0.6);
+  assert.equal(surfaceKeep(0.6, "trampoline", cfg), 0.6);
+  assert.equal(surfaceKeep(0.6, "mud", cfg), cfg.mudKeep);
+  assert.equal(surfaceKeep(0.05, "mud", cfg), 0.05);
 });

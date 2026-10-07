@@ -17,6 +17,9 @@ import {
   stepCharge,
   stepLean,
   stickAxis,
+  surfaceChargeRate,
+  surfaceKeep,
+  surfaceLaunchFactor,
   swingTip,
   type ChargeState,
   type Vec2,
@@ -24,6 +27,7 @@ import {
 } from "../core/pogoCore.ts";
 import { canDismount, inRestSpot, RIDING, STANDING, stepRide, type RestRegion, type RideState } from "../core/restCore.ts";
 import type { PogoState } from "../core/saveCore.ts";
+import type { Surface } from "../levels/types.ts";
 import type { PogoInput } from "./input.ts";
 
 /** Slowest horizontal speed that still counts as movement for recentering, m/s. */
@@ -57,6 +61,15 @@ function createParts(): Part[] {
     { name: "body", shape: new RAPIER.Capsule(0.475, 0.2), offset: 1.075 },
   ];
 }
+
+/** What the pogo needs to know about the level beyond its shapes. */
+export interface LevelInfo {
+  /** Surface type of the piece a collider belongs to. */
+  surfaceOf(collider: RAPIER.Collider): Surface;
+}
+
+/** A level without surface types: everything is normal. */
+const PLAIN_LEVEL: LevelInfo = { surfaceOf: () => "normal" };
 
 export type ContactKind = "floor" | "wall" | "bonk";
 
@@ -104,6 +117,8 @@ export class Pogo {
   launches = 0;
   /** Riding, or getting off / standing / getting on at a rest spot. */
   ride: RideState = { ...RIDING };
+  /** Surface of the last floor bounce: decides how fast the charge fills. */
+  surface: Surface = "normal";
 
   /** State before the last step, for render interpolation. */
   prevPos: Vec3;
@@ -121,10 +136,12 @@ export class Pogo {
 
   private world: RAPIER.World;
   private restSpots: readonly RestRegion[];
+  private level: LevelInfo;
 
-  constructor(start: Vec3, world: RAPIER.World, restSpots: readonly RestRegion[] = []) {
+  constructor(start: Vec3, world: RAPIER.World, restSpots: readonly RestRegion[] = [], level: LevelInfo = PLAIN_LEVEL) {
     this.world = world;
     this.restSpots = restSpots;
+    this.level = level;
     this.pos = { ...start, y: start.y + SPAWN_LIFT };
     this.prevPos = { ...this.pos };
     this.peakY = this.launchY = start.y;
@@ -149,6 +166,7 @@ export class Pogo {
     this.steering = false;
     this.kickDir = { x: 0, z: 0 };
     this.ride = { ...RIDING };
+    this.surface = "normal";
   }
 
   /** True when the pogo is inside a rest spot, where the courier can get off. */
@@ -206,7 +224,7 @@ export class Pogo {
     const locked = this.bonkLock > 0;
     if (input.mode === "mouse") this.stepMouseLean(input, cameraYaw, locked, dt);
     else this.stepKeyLean(input, cameraYaw, locked, dt);
-    this.charge = stepCharge(this.charge, input.charge, dt, cfg);
+    this.charge = stepCharge(this.charge, input.charge, dt * surfaceChargeRate(this.surface, cfg), cfg);
 
     this.move(dt);
 
@@ -309,7 +327,7 @@ export class Pogo {
       }
       if (hit.part === "tip" && approaching && tipContactValid(stick, n, cfg)) {
         if (canDismount(this.ride, this.inRestSpot(), Math.hypot(this.vel.x, this.vel.z), cfg)) this.getOff(stick, n);
-        else this.launch(stick, n, "floor");
+        else this.launch(stick, n, "floor", this.level.surfaceOf(hit.collider));
         return;
       }
       const bonk = bonkVelocity(this.vel, n, cfg);
@@ -337,17 +355,20 @@ export class Pogo {
     this.launches++;
   }
 
-  private launch(stick: Vec3, normal: Vec3, kind: "floor" | "wall"): void {
+  /** Wall kicks ignore the surface type; floor bounces use it. */
+  private launch(stick: Vec3, normal: Vec3, kind: "floor" | "wall", surface: Surface = "normal"): void {
     // Floor bounces carry part of the fall; wall kicks drop the falling speed.
     const carried = kind === "floor" ? carriedApex(this.peakY - this.pos.y, cfg) : 0;
     const bounce = resolveBounce(this.charge, cfg, carried);
     this.charge = bounce.charge;
-    const keep = { ...cfg, keepHorizontal: momentumKeep(this.steering, cfg) };
+    const keep = { ...cfg, keepHorizontal: surfaceKeep(momentumKeep(this.steering, cfg), surface, cfg) };
     this.steering = false;
     if (kind === "wall") {
       this.vel = wallKick(this.kickDir, normal, bounce.apex, this.vel, keep);
     } else {
-      const flat = launchVelocity(this.lean, launchSpeed(bounce.apex, cfg.gravity), this.vel, keep);
+      this.surface = surface;
+      const speed = launchSpeed(bounce.apex, cfg.gravity) * surfaceLaunchFactor(surface, cfg);
+      const flat = launchVelocity(this.lean, speed, this.vel, keep);
       this.vel = slopeLaunch(flat, normal, cfg.slopeBlend);
     }
     this.kickDir = NO_LEAN;
@@ -359,16 +380,16 @@ export class Pogo {
   }
 
   /** Earliest contact of any part moving by `disp` (fraction of `disp`); the tip wins ties. */
-  private cast(disp: Vec3): { part: Part["name"]; toi: number; normal: Vec3 } | null {
+  private cast(disp: Vec3): { part: Part["name"]; toi: number; normal: Vec3; collider: RAPIER.Collider } | null {
     const axis = stickAxis(this.lean);
     const rot = rotationTo(axis);
-    let best: { part: Part["name"]; toi: number; normal: Vec3 } | null = null;
+    let best: { part: Part["name"]; toi: number; normal: Vec3; collider: RAPIER.Collider } | null = null;
     for (const p of this.parts) {
       const centre = { x: this.pos.x + axis.x * p.offset, y: this.pos.y + axis.y * p.offset, z: this.pos.z + axis.z * p.offset };
       const hit = this.world.castShape(centre, rot, disp, p.shape, 0, 1, false);
       if (hit && (!best || hit.time_of_impact < best.toi - 1e-6)) {
         const n = hit.normal1;
-        best = { part: p.name, toi: hit.time_of_impact, normal: { x: n.x, y: n.y, z: n.z } };
+        best = { part: p.name, toi: hit.time_of_impact, normal: { x: n.x, y: n.y, z: n.z }, collider: hit.collider };
       }
     }
     return best;

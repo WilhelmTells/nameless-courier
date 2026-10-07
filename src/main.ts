@@ -85,12 +85,12 @@ async function boot(): Promise<void> {
   grid.position.y = 0.001;
   scene.add(grid);
 
-  buildLevel(LEVEL, scene, physics);
+  const levelWorld = buildLevel(LEVEL, scene, physics);
   // Build the query structures once, so the pogo, camera and marker can cast
   // against the level before the first simulation step.
   physics.step();
 
-  const pogo = new Pogo(START, physics, LEVEL.restSpots);
+  const pogo = new Pogo(START, physics, LEVEL.restSpots, levelWorld);
   const rig = createPogoRig();
   scene.add(rig.group);
 
