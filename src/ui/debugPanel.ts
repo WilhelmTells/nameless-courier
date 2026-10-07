@@ -5,6 +5,7 @@ import GUI from "lil-gui";
 import { cameraConfig, DEFAULT_CAMERA, DEFAULT_POGO, pogoConfig, type CameraConfig, type PogoConfig } from "../config.ts";
 import { controlMode, onControlModeChange, setControlMode, type ControlMode } from "../game/input.ts";
 import type { Pogo } from "../game/pogo.ts";
+import type { TeleportTarget } from "../levels/index.ts";
 
 type Range = [min: number, max: number, step: number];
 
@@ -124,7 +125,13 @@ function addGroup<T extends object>(gui: GUI, group: ConfigGroup<T>): void {
   }
 }
 
-export function createDebugPanel(pogo: Pogo, resetPosition: () => void, newRun: () => void): void {
+export function createDebugPanel(
+  pogo: Pogo,
+  resetPosition: () => void,
+  newRun: () => void,
+  targets: readonly TeleportTarget[],
+  teleport: (target: TeleportTarget) => void,
+): void {
   const gui = new GUI({ title: "Debug" });
 
   const settings = { controls: controlMode() };
@@ -172,4 +179,10 @@ export function createDebugPanel(pogo: Pogo, resetPosition: () => void, newRun: 
   tools.add(actions, "resetValues").name("Reset values");
   tools.add(actions, "resetPosition").name("Back to start");
   tools.add(actions, "newRun").name("New run (clears the save)");
+
+  // Teleport keeps the timer and falls; it moves the pogo to the target, at rest.
+  const jump = { target: 0, teleport: () => teleport(targets[jump.target]) };
+  const labels = Object.fromEntries(targets.map((t, i) => [t.label, i]));
+  tools.add(jump, "target", labels).name("Teleport to");
+  tools.add(jump, "teleport").name("Teleport");
 }

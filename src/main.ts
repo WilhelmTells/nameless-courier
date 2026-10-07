@@ -11,7 +11,7 @@ import { controlMode, initInput, onControlModeChange, readInput, setStanding, ty
 import { LandingMarker } from "./game/landingMarker.ts";
 import { Pogo } from "./game/pogo.ts";
 import { buildLevel } from "./game/world.ts";
-import { DEFAULT_LEVEL, LEVEL_ALIASES, levelFromSearch } from "./levels/index.ts";
+import { DEFAULT_LEVEL, LEVEL_ALIASES, levelFromSearch, teleportTargets, type TeleportTarget } from "./levels/index.ts";
 import { createPogoRig } from "./render/pogoRig.ts";
 import { VERSION } from "./version.ts";
 
@@ -163,7 +163,13 @@ async function boot(): Promise<void> {
 
   if (new URLSearchParams(location.search).has("debug")) {
     const { createDebugPanel } = await import("./ui/debugPanel.ts");
-    createDebugPanel(pogo, () => pogo.reset(START), newRun);
+    // A teleport is not a fall: the fall reference moves with the pogo.
+    const teleport = ({ point }: TeleportTarget) => {
+      pogo.reset(point);
+      stats = { ...stats, height: point.y, fallRef: point.y };
+      seenLaunches = pogo.launches;
+    };
+    createDebugPanel(pogo, () => pogo.reset(START), newRun, teleportTargets(LEVEL), teleport);
   }
 
   function resize(): void {

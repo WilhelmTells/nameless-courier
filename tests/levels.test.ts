@@ -1,6 +1,6 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
-import { DEFAULT_LEVEL, LEVELS, levelFromSearch } from "../src/levels/index.ts";
+import { DEFAULT_LEVEL, LEVELS, levelFromSearch, teleportTargets } from "../src/levels/index.ts";
 
 test("level comes from the URL, the structure by default", () => {
   assert.equal(DEFAULT_LEVEL.id, "tower");
@@ -61,4 +61,18 @@ test("every rest spot lies on the ground or on top of a piece", () => {
       assert.ok(s.max.y > s.min.y + 1, `${level.id}/${s.id} reaches above the surface`);
     }
   }
+});
+
+test("teleport targets: each zone start, then each rest spot's surface centre", () => {
+  const tower = LEVELS.tower;
+  const targets = teleportTargets(tower);
+  assert.equal(targets.length, tower.zones.length + tower.restSpots.length);
+  assert.deepEqual(targets[0], { label: "Base: start", point: tower.zones[0].start });
+  const spot = tower.restSpots[0];
+  assert.deepEqual(targets[tower.zones.length].point, {
+    x: (spot.min.x + spot.max.x) / 2,
+    y: spot.min.y,
+    z: (spot.min.z + spot.max.z) / 2,
+  });
+  assert.equal(teleportTargets(LEVELS.playground)[0].label, "Playground: start");
 });
