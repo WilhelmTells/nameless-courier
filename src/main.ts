@@ -11,6 +11,7 @@ import { controlMode, initInput, onControlModeChange, readInput, setStanding, ty
 import { LandingMarker } from "./game/landingMarker.ts";
 import { Pogo } from "./game/pogo.ts";
 import { buildLevel } from "./game/world.ts";
+import type { FlyCamera } from "./game/flyCamera.ts";
 import { DEFAULT_LEVEL, LEVEL_ALIASES, levelFromSearch, teleportTargets, type TeleportTarget } from "./levels/index.ts";
 import { createPogoRig } from "./render/pogoRig.ts";
 import { VERSION } from "./version.ts";
@@ -161,15 +162,39 @@ async function boot(): Promise<void> {
   showControls(controlMode());
   onControlModeChange(showControls);
 
+  /** Debug fly camera; while it flies the game is paused. */
+  let fly: FlyCamera | null = null;
   if (new URLSearchParams(location.search).has("debug")) {
     const { createDebugPanel } = await import("./ui/debugPanel.ts");
+    const { FlyCamera } = await import("./game/flyCamera.ts");
     // A teleport is not a fall: the fall reference moves with the pogo.
     const teleport = ({ point }: TeleportTarget) => {
       pogo.reset(point);
       stats = { ...stats, height: point.y, fallRef: point.y };
       seenLaunches = pogo.launches;
     };
-    createDebugPanel(pogo, () => pogo.reset(START), newRun, teleportTargets(LEVEL), teleport);
+    const flyCam = new FlyCamera(camera, canvas);
+    // Flying looks at the whole map: fog and view distance are pushed back.
+    const fog = scene.fog as THREE.Fog;
+    const view = { fogFar: fog.far, cameraFar: camera.far };
+    flyCam.onChange((active) => {
+      orbit.active = !active;
+      fog.far = active ? 400 : view.fogFar;
+      camera.far = active ? 1000 : view.cameraFar;
+      camera.updateProjectionMatrix();
+    });
+    // Put the pogo on the surface below the fly camera and end fly mode.
+    // Nothing happens when the camera is inside a block or above nothing.
+    const dropHere = () => {
+      if (!flyCam.active) return;
+      const p = flyCam.position();
+      const hit = physics.castRay(new RAPIER.Ray(p, { x: 0, y: -1, z: 0 }), 1000, true);
+      if (!hit || hit.timeOfImpact < 0.01) return;
+      teleport({ label: "", point: { x: p.x, y: p.y - hit.timeOfImpact, z: p.z } });
+      flyCam.setActive(false);
+    };
+    fly = flyCam;
+    createDebugPanel(pogo, () => pogo.reset(START), newRun, teleportTargets(LEVEL), teleport, flyCam, dropHere);
   }
 
   function resize(): void {
@@ -192,6 +217,15 @@ async function boot(): Promise<void> {
   renderer.setAnimationLoop((time: number) => {
     const frameDt = (time - lastTime) / 1000;
     lastTime = time;
+
+    if (fly?.active) {
+      // Paused: no simulation, no timer, no saves; the fly camera renders.
+      accumulator = 0;
+      fly.update(frameDt);
+      rideHint.textContent = rideHintText = "fly: WASD · Space / Shift up, down · wheel speed · Ctrl fast · F back";
+      renderer.render(scene, camera);
+      return;
+    }
 
     const loop = advanceLoop(accumulator, frameDt, SIM_DT);
     accumulator = loop.accumulator;

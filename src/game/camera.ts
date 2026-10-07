@@ -29,6 +29,8 @@ export class OrbitCamera {
   yaw = 0;
   pitch = cfg.pitchDefault;
   distance = cfg.distanceDefault;
+  /** False while another camera (the debug fly camera) has the mouse and keys. */
+  active = true;
 
   private readonly world: RAPIER.World;
   private probe: RAPIER.Ball;
@@ -50,7 +52,7 @@ export class OrbitCamera {
     });
     document.addEventListener("mousemove", (e) => {
       // With mouse controls the mouse leans the stick; it orbits only while the right button is held.
-      if (document.pointerLockElement !== canvas || !mouseOrbits()) return;
+      if (!this.active || document.pointerLockElement !== canvas || !mouseOrbits()) return;
       this.mouseDx += e.movementX;
       this.mouseDy += e.movementY;
     });
@@ -58,13 +60,14 @@ export class OrbitCamera {
       "wheel",
       (e) => {
         e.preventDefault();
+        if (!this.active) return;
         // Normalise to notches: line mode reports ~3 per notch, pixel mode ~100.
         this.wheel += e.deltaMode === WheelEvent.DOM_DELTA_LINE ? e.deltaY / 3 : e.deltaY / 100;
       },
       { passive: false },
     );
     window.addEventListener("keydown", (e) => {
-      if (e.code === "KeyR" && !(e.target instanceof HTMLInputElement)) this.recenter = true;
+      if (this.active && e.code === "KeyR" && !(e.target instanceof HTMLInputElement)) this.recenter = true;
     });
   }
 

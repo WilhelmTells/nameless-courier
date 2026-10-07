@@ -4,6 +4,7 @@
 import GUI from "lil-gui";
 import { cameraConfig, DEFAULT_CAMERA, DEFAULT_POGO, pogoConfig, type CameraConfig, type PogoConfig } from "../config.ts";
 import { controlMode, onControlModeChange, setControlMode, type ControlMode } from "../game/input.ts";
+import type { FlyCamera } from "../game/flyCamera.ts";
 import type { Pogo } from "../game/pogo.ts";
 import type { TeleportTarget } from "../levels/index.ts";
 
@@ -131,6 +132,8 @@ export function createDebugPanel(
   newRun: () => void,
   targets: readonly TeleportTarget[],
   teleport: (target: TeleportTarget) => void,
+  fly: FlyCamera,
+  dropHere: () => void,
 ): void {
   const gui = new GUI({ title: "Debug" });
 
@@ -185,4 +188,13 @@ export function createDebugPanel(
   const labels = Object.fromEntries(targets.map((t, i) => [t.label, i]));
   tools.add(jump, "target", labels).name("Teleport to");
   tools.add(jump, "teleport").name("Teleport");
+
+  // Fly camera (F): look around the map with the game paused.
+  const flying = { on: fly.active, dropHere };
+  const flyToggle = tools.add(flying, "on").name("Fly camera (F)").onChange((on: boolean) => fly.setActive(on));
+  fly.onChange((on) => {
+    flying.on = on;
+    flyToggle.updateDisplay();
+  });
+  tools.add(flying, "dropHere").name("Drop pogo here (while flying)");
 }
