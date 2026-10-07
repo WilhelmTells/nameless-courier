@@ -6,7 +6,10 @@
 // terrace and a fall from a higher one lands on a lower one:
 //   A (base)  x -24..24, z -60..-16, top 10
 //   B         x -24..20, z -60..-22, top 22 (gap at the side, crossed on pads)
-//   C         x -24..12, z -60..-28, top 70 (the rest of the tower)
+//   C         x -24..16, z -60..-28, top 70 (the rest of the tower)
+//
+// Overhangs and walls above the route stop the big skips: a full charge
+// under them hits them instead of clearing a whole section.
 
 import type { Level, Piece } from "./types.ts";
 
@@ -71,6 +74,10 @@ const pieces: Piece[] = [
   block("well-2-lip", 5, 7.5, ROOF_A - 3, ROOF_A + 1, FACE_A - 0.4, FACE_A),
   block("parapet-3", 7.5, 24, ROOF_A, ROOF_A + 1, FACE_A - 0.4, FACE_A),
 
+  // Cornice along roof A's front, over ledge 1 and the gaps: charging under it
+  // hits it, and its top is out of reach from the yard.
+  block("cornice", -13, 24, ROOF_A, ROOF_A + 2, FACE_A, FACE_A + 3),
+
   // Narrow beam between two vents over the first light well.
   block("vent-1", -16, -13, ROOF_A, ROOF_A + 3, -21, -17),
   block("beam", -13, -6, ROOF_A + 2.7, ROOF_A + 3, -19.2, -18.8),
@@ -78,6 +85,8 @@ const pieces: Piece[] = [
 
   // Low ceiling: a canopy 3.2 m above the terrace, over the second light well.
   block("canopy", 2, 10, ROOF_A + 3.2, ROOF_A + 3.6, FACE_B, FACE_A),
+  // A service stack rising from the canopy stops jumps from the vents over it.
+  block("stack", 2, 3, ROOF_A + 3.2, ROOF_B + 2, FACE_B, FACE_A + 3),
 
   // Mixed stretch: ledges on block B's front face, round the corner onto roof B.
   block("ledge-b-1", 12, 15, ROOF_A, 13.5, FACE_B, -19.5),
@@ -86,14 +95,16 @@ const pieces: Piece[] = [
 
   // Block B, with a gap in its side strip crossed on two pads (1.5 m gaps).
   block("block-b", -24, 16, ROOF_A, ROOF_B, -60, FACE_B),
+  // Parapet along roof B's front, too high to reach from the vents.
+  block("parapet-b", -24, 12, ROOF_B, ROOF_B + 2, FACE_B - 0.4, FACE_B),
   block("block-b-side-1", 16, 20, ROOF_A, ROOF_B, -36, FACE_B),
   block("pad-1", 16.75, 19.25, ROOF_A, ROOF_B + 0.5, -40, -37.5),
   block("pad-2", 16.75, 19.25, ROOF_A, ROOF_B + 1, -44, -41.5),
-  block("block-b-side-2", 16, 20, ROOF_A, ROOF_B, -60, -45.5),
+  block("block-b-side-2", 16, 20, ROOF_A, ROOF_B, -56, -45.5),
 
   // Block C, the rest of the tower, and the rest ledge at the top of the zone.
-  block("block-c", -24, 12, ROOF_B, 70, -60, -28),
-  block("rest-ledge", 12, 15, ROOF_B, ROOF_B + 4, -56, -52),
+  block("block-c", -24, 16, ROOF_B, 70, -60, -28),
+  block("rest-ledge", 16, 20, ROOF_A, ROOF_B + 4, -60, -56),
 ];
 
 export const zone1: Level = {
@@ -103,6 +114,6 @@ export const zone1: Level = {
   pieces,
   restSpots: [
     { id: "yard-start", min: { x: -3, y: 0, z: -3 }, max: { x: 3, y: 3, z: 3 } },
-    { id: "zone-top", min: { x: 12, y: ROOF_B + 4, z: -56 }, max: { x: 15, y: ROOF_B + 7, z: -52 } },
+    { id: "zone-top", min: { x: 16, y: ROOF_B + 4, z: -60 }, max: { x: 20, y: ROOF_B + 7, z: -56 } },
   ],
 };
