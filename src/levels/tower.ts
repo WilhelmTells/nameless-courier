@@ -5,8 +5,9 @@ import type { Level, Zone } from "./types.ts";
 import { zone1 } from "./zone1.ts";
 import { zone2 } from "./zone2.ts";
 import { zone3 } from "./zone3.ts";
+import { zone4 } from "./zone4.ts";
 
-const zones: readonly Zone[] = [zone1, zone2, zone3];
+const zones: readonly Zone[] = [zone1, zone2, zone3, zone4];
 
 export const tower: Level = {
   id: "tower",
