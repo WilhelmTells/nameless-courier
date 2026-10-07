@@ -104,6 +104,12 @@ async function boot(): Promise<void> {
     orbit.yaw = saved.yaw;
     stats = saved.stats;
   }
+  // Moving pieces follow the run clock, so a reload puts them where they were.
+  const placeMovers = (t: number) => {
+    levelWorld.place(t);
+    physics.step();
+  };
+  placeMovers(stats.time);
   const savedBest = SAVES ? parseBest(readStorage(BEST_KEY)) : null;
   if (savedBest !== null) stats.best = Math.max(stats.best, savedBest);
   let seenLaunches = pogo.launches;
@@ -128,6 +134,7 @@ async function boot(): Promise<void> {
     pogo.reset(START);
     orbit.yaw = 0;
     stats = newStats(START.y);
+    placeMovers(stats.time);
     seenLaunches = pogo.launches;
   };
   const statsLabel = document.querySelector<HTMLDivElement>("#stats")!;
@@ -237,8 +244,9 @@ async function boot(): Promise<void> {
     accumulator = loop.accumulator;
     for (let i = 0; i < loop.steps; i++) {
       pogo.step(readInput(), orbit.yaw, SIM_DT);
-      physics.step();
       stats.time += SIM_DT;
+      levelWorld.advance(stats.time);
+      physics.step();
       if (pogo.launches !== seenLaunches) {
         seenLaunches = pogo.launches;
         stats = onLaunch(stats, pogo.groundY, FALL_HEIGHT);
@@ -249,6 +257,7 @@ async function boot(): Promise<void> {
 
     // Interpolate between the last two simulation states.
     const a = loop.alpha;
+    levelWorld.render(stats.time - SIM_DT * (1 - a));
     tip.set(
       pogo.prevPos.x + (pogo.pos.x - pogo.prevPos.x) * a,
       pogo.prevPos.y + (pogo.pos.y - pogo.prevPos.y) * a,

@@ -2,6 +2,8 @@
 
 import * as THREE from "three";
 import RAPIER from "@dimforge/rapier3d-compat";
+import { poseAt, velocityAt, type Pose } from "../core/motionCore.ts";
+import type { Vec3 } from "../core/pogoCore.ts";
 import type { Level, Piece, Surface } from "../levels/types.ts";
 import type { LevelInfo } from "./pogo.ts";
 
@@ -86,16 +88,87 @@ function markRestSpots(level: Level, scene: THREE.Scene): void {
   }
 }
 
-/** The built level: what the pogo needs to know about its pieces. */
+const ZERO: Vec3 = { x: 0, y: 0, z: 0 };
+
+/** A piece that moves: its kinematic body follows the motion, its mesh is drawn between steps. */
+interface Mover {
+  piece: Piece;
+  body: RAPIER.RigidBody;
+  collider: RAPIER.Collider;
+  mesh: THREE.Object3D;
+  /** The piece's own rotation, before its motion turns it. */
+  rest: THREE.Quaternion;
+}
+
+/**
+ * The built level: what the pogo needs to know about its pieces, and the
+ * moving ones. Movers are a pure function of the run clock (`time`).
+ */
 export class LevelWorld implements LevelInfo {
+  /** Run time the movers' colliders are posed at, s. */
+  time = 0;
+  readonly movers: Mover[] = [];
   private pieces = new Map<number, Piece>();
+  private turn = new THREE.Quaternion();
 
   add(collider: RAPIER.Collider, piece: Piece): void {
     this.pieces.set(collider.handle, piece);
   }
 
+  addMover(mover: Mover): void {
+    this.movers.push(mover);
+    this.add(mover.collider, mover.piece);
+  }
+
   surfaceOf(collider: RAPIER.Collider): Surface {
     return this.pieces.get(collider.handle)?.surface ?? "normal";
+  }
+
+  /** Velocity of the piece at `point`, at the current time; zero for still pieces, m/s. */
+  velocityAt(collider: RAPIER.Collider, point: Vec3): Vec3 {
+    const piece = this.pieces.get(collider.handle);
+    return piece ? velocityAt(piece.motion, piece.position, this.time, point) : ZERO;
+  }
+
+  isMover(collider: RAPIER.Collider): boolean {
+    const piece = this.pieces.get(collider.handle);
+    return piece !== undefined && piece.motion.kind !== "none";
+  }
+
+  /** Moves every mover's collider to time `t` now (start, reload, new run). Takes effect after the next physics step. */
+  place(t: number): void {
+    this.time = t;
+    for (const m of this.movers) {
+      const { position, rotation } = this.bodyPose(m, poseAt(m.piece.motion, m.piece.position, t));
+      m.body.setTranslation(position, false);
+      m.body.setRotation(rotation, false);
+      m.body.setNextKinematicTranslation(position);
+      m.body.setNextKinematicRotation(rotation);
+    }
+  }
+
+  /** Sets every mover's pose for time `t`; the next physics step moves them there. */
+  advance(t: number): void {
+    this.time = t;
+    for (const m of this.movers) {
+      const { position, rotation } = this.bodyPose(m, poseAt(m.piece.motion, m.piece.position, t));
+      m.body.setNextKinematicTranslation(position);
+      m.body.setNextKinematicRotation(rotation);
+    }
+  }
+
+  /** Poses the movers' meshes for drawing at run time `t`. */
+  render(t: number): void {
+    for (const m of this.movers) {
+      const pose = poseAt(m.piece.motion, m.piece.position, t);
+      m.mesh.position.set(pose.position.x, pose.position.y, pose.position.z);
+      m.mesh.quaternion.set(pose.turn.x, pose.turn.y, pose.turn.z, pose.turn.w).multiply(m.rest);
+    }
+  }
+
+  private bodyPose(m: Mover, pose: Pose): { position: Vec3; rotation: RAPIER.Rotation } {
+    const q = this.turn.set(pose.turn.x, pose.turn.y, pose.turn.z, pose.turn.w).multiply(m.rest);
+    return { position: pose.position, rotation: { x: q.x, y: q.y, z: q.z, w: q.w } };
   }
 }
 
@@ -127,13 +200,21 @@ export function buildLevel(level: Level, scene: THREE.Scene, physics: RAPIER.Wor
     scene.add(mesh);
 
     const q = mesh.quaternion;
-    const collider = physics.createCollider(
-      colliderFor(piece)
-        .setTranslation(piece.position.x, piece.position.y, piece.position.z)
-        .setRotation({ x: q.x, y: q.y, z: q.z, w: q.w }),
-    );
-    built.add(collider, piece);
+    if (piece.motion.kind === "none") {
+      const collider = physics.createCollider(
+        colliderFor(piece)
+          .setTranslation(piece.position.x, piece.position.y, piece.position.z)
+          .setRotation({ x: q.x, y: q.y, z: q.z, w: q.w }),
+      );
+      built.add(collider, piece);
+    } else {
+      const body = physics.createRigidBody(RAPIER.RigidBodyDesc.kinematicPositionBased());
+      const collider = physics.createCollider(colliderFor(piece), body);
+      built.addMover({ piece, body, collider, mesh, rest: q.clone() });
+    }
   }
   markRestSpots(level, scene);
+  built.place(0);
+  built.render(0);
   return built;
 }
