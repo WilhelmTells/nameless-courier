@@ -11,7 +11,7 @@
 // slip before the crown lands on it.
 
 import type { Motion } from "../core/motionCore.ts";
-import { block, pole, ramp } from "./shapes.ts";
+import { barrel, block, pole, ramp } from "./shapes.ts";
 import type { Piece, Surface, Zone } from "./types.ts";
 
 const ROOF = 120;
@@ -100,6 +100,12 @@ const pieces: Piece[] = [
   pole("antenna", 19, -99.5, 0.6, HOOD + 0.5, 172),
   block("summit-rail", 5, 15, RAIL, RAIL + 0.5, -98.5, -97.5),
 ];
+
+// A few rusty barrels on the roof by the tank.
+pieces.push(
+  barrel("prop-roof-barrel-1", -35.4, -91.7, ROOF),
+  barrel("prop-roof-barrel-2", -34.6, -91.3, ROOF, 0.9),
+);
 
 export const zone6: Zone = {
   id: "zone6",

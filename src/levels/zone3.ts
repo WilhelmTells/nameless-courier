@@ -7,7 +7,7 @@
 // Inside is x -23..15, z -59..-29 (1 m walls). The entrance is the opening in
 // the back wall at x 2..8, from Zone 2's top ledge.
 
-import { block, ramp } from "./shapes.ts";
+import { barrel, block, crate, ramp } from "./shapes.ts";
 import type { Piece, Zone } from "./types.ts";
 
 const F1 = 50;
@@ -72,6 +72,15 @@ const pieces: Piece[] = [
   block("roof-a", X0, X1, ROOF - SLAB, ROOF, CH_Z + 0.5, Z1),
   block("roof-b", CH_X + 0.5, X1, ROOF - SLAB, ROOF, Z0, CH_Z + 0.5),
 ];
+
+// Props on the court floor, in its corners, away from the climb up tower D.
+pieces.push(
+  crate("prop-court-crate-1", -20.8, -31.9, 1.1, ROOF, 10),
+  barrel("prop-court-barrel-1", -19.6, -30.8, ROOF),
+  barrel("prop-court-barrel-2", -21.4, -30.6, ROOF, 0.9),
+  barrel("prop-court-barrel-3", -21.3, -44.4, ROOF),
+  crate("prop-court-crate-2", -20.6, -43.4, 0.9, ROOF, -25),
+);
 
 export const zone3: Zone = {
   id: "zone3",

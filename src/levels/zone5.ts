@@ -5,7 +5,7 @@
 // 2's deck, to the crane tower: the first heartbreak spot.
 
 import type { Motion } from "../core/motionCore.ts";
-import { block } from "./shapes.ts";
+import { barrel, block, crate, pallet } from "./shapes.ts";
 import type { Piece, Zone } from "./types.ts";
 import { D_TOP, GATE_BOTTOM, GATE_X0, GATE_X1 } from "./zone4.ts";
 
@@ -65,6 +65,17 @@ const pieces: Piece[] = [
 
 // The gate in the back wall must let the cages through.
 if (GATE_X0 > -12 || GATE_X1 < -8 || GATE_BOTTOM > GANTRY - CAGE) throw new Error("zone5: cages do not fit the gate");
+
+// Props on the lower deck, where a miss at the crossing lands.
+/** Top of the lower deck (deck-annex), m. */
+const DECK = 26;
+pieces.push(
+  crate("prop-annex-crate-1", -20.4, -87.4, 1.2, DECK, -8),
+  crate("prop-annex-crate-2", -19, -86.6, 0.9, DECK, 22),
+  pallet("prop-annex-pallet", -20.6, -85.9, DECK, 4),
+  barrel("prop-annex-barrel-1", -4.3, -87.8, DECK),
+  barrel("prop-annex-barrel-2", -3.5, -87.1, DECK, 0.9),
+);
 
 export const zone5: Zone = {
   id: "zone5",

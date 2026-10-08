@@ -26,7 +26,7 @@ export interface Piece {
   size: Vec3;
   surface: Surface;
   motion: Motion;
-  /** Look only. */
+  /** Look only: "crate", "barrel", "stone" or "water" for props; plain otherwise. */
   material?: string;
 }
 

@@ -7,7 +7,7 @@
 // Scaffolding levels overlap in x, so each level is the ceiling of the one
 // below: a full charge under a plank hits it instead of skipping a level.
 
-import { block, pole } from "./shapes.ts";
+import { barrel, block, crate, pallet, pole } from "./shapes.ts";
 import type { Piece, Zone } from "./types.ts";
 
 const DECK = 26;
@@ -51,6 +51,16 @@ const pieces: Piece[] = [
 function column(id: string, x: number, width: number, top: number): Piece {
   return block(id, x - width / 2, x + width / 2, DECK, top, -67 - width / 2, -67 + width / 2);
 }
+
+// Props on the deck, in the back corner, away from the columns and the scaffolding.
+pieces.push(
+  crate("prop-deck-crate-1", 13.6, -74.3, 1.2, DECK, 5),
+  crate("prop-deck-crate-2", 15.2, -73.9, 1, DECK, -15),
+  crate("prop-deck-crate-3", 14.9, -72.6, 0.8, DECK, 30),
+  pallet("prop-deck-pallet", 13.4, -72.7, DECK, -6),
+  barrel("prop-deck-barrel-1", 7.4, -74.8, DECK),
+  barrel("prop-deck-barrel-2", 8.3, -74.4, DECK, 0.9),
+);
 
 export const zone2: Zone = {
   id: "zone2",

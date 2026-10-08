@@ -6,7 +6,7 @@ import { poseAt, velocityAt, type Pose } from "../core/motionCore.ts";
 import type { Vec3 } from "../core/pogoCore.ts";
 import type { Level, Piece, Surface } from "../levels/types.ts";
 import type { LevelInfo } from "./pogo.ts";
-import { addArchitecture, addSkyline, pieceLook, projectUVs, surfaceTexture, trimGeometry, weather } from "../render/worldLook.ts";
+import { addArchitecture, addSkyline, pieceLook, projectUVs, propLook, surfaceTexture, trimGeometry, weather, type PropMaterial } from "../render/worldLook.ts";
 
 const PIECE_COLOR = 0x8a8a8d;
 /** Lighter edges keep platform borders readable. */
@@ -180,10 +180,16 @@ export class LevelWorld implements LevelInfo {
 
 /** Adds every piece of `level` to the scene and the physics world. */
 export function buildLevel(level: Level, scene: THREE.Scene, physics: RAPIER.World): LevelWorld {
-  const looks = new Map<string, { mesh: THREE.Material; edge: THREE.Material }>();
-  const lookFor = (surface: Surface, variant: number) => {
-    const id = `${surface}:${variant}`;
+  const looks = new Map<string, { mesh: THREE.Material; edge: THREE.Material; tile?: number }>();
+  const lookFor = (surface: Surface, variant: number, material?: string) => {
+    const id = material ?? `${surface}:${variant}`;
     let look = looks.get(id);
+    if (!look && material) {
+      // Props (crates, barrels, the fountain) bring their own look; the trim stays.
+      const prop = propLook(material as PropMaterial);
+      look = { mesh: prop.mesh, tile: prop.tile, edge: new THREE.MeshBasicMaterial({ color: SURFACE_LOOK[surface].edge, side: THREE.DoubleSide }) };
+      looks.set(id, look);
+    }
     if (!look) {
       const { color, edge } = SURFACE_LOOK[surface];
       const map = surfaceTexture(surface, variant);
@@ -216,8 +222,10 @@ export function buildLevel(level: Level, scene: THREE.Scene, physics: RAPIER.Wor
 
   for (const piece of level.pieces) {
     const { variant, offset } = pieceLook(piece.id);
-    const look = lookFor(piece.surface, variant);
-    const geo = projectUVs(geometryFor(piece), offset);
+    const look = lookFor(piece.surface, variant, piece.material);
+    // Crates and barrels centre one tile on each face.
+    const centred = piece.material === "crate" || piece.material === "barrel";
+    const geo = projectUVs(geometryFor(piece), centred ? [0.5, 0.5] : offset, look.tile);
     const mesh = new THREE.Mesh(geo, look.mesh);
     mesh.position.set(piece.position.x, piece.position.y, piece.position.z);
     mesh.rotation.set(piece.rotation.x * DEG, piece.rotation.y * DEG, piece.rotation.z * DEG);

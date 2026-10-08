@@ -397,6 +397,34 @@ export function addDressing(level: Level, scene: THREE.Scene): (time: number) =>
     }
   }
 
+  // Fountains: the bowl overflows in a thin curtain into the basin, and water
+  // runs down the finial into the bowl.
+  for (const bowl of level.pieces.filter((p) => p.id.endsWith("-bowl") && p.material === "stone")) {
+    const base = bowl.id.slice(0, -"-bowl".length);
+    const basin = level.pieces.find((p) => p.id === `${base}-basin`);
+    const finial = level.pieces.find((p) => p.id === `${base}-finial`);
+    if (!basin) continue;
+    const bowlTop = bowl.position.y + bowl.size.y / 2;
+    const water = basin.position.y + basin.size.y / 2;
+    const fall = (radius: number, top: number, bottom: number) => {
+      const h = top - bottom;
+      const sheet = new THREE.CylinderGeometry(radius, radius * 1.04, h, 16, 1, true).toNonIndexed();
+      const uv = sheet.attributes.uv;
+      for (let i = 0; i < uv.count; i++) uv.setXY(i, uv.getX(i) * radius * 12, uv.getY(i) * h * 0.8);
+      streams.push(sheet.translate(bowl.position.x, bottom + h / 2, bowl.position.z));
+    };
+    fall(bowl.size.x / 2 + 0.03, bowlTop - 0.02, water + 0.01);
+    if (finial) fall(finial.size.x / 2 + 0.02, finial.position.y + finial.size.y / 2 - 0.05, bowlTop);
+    // The bowl holds water, and the curtain splashes around the basin.
+    const pool = new THREE.CircleGeometry(bowl.size.x / 2 - 0.08, 16).rotateX(-Math.PI / 2).toNonIndexed();
+    stains.push(pool.translate(bowl.position.x, bowlTop + 0.01, bowl.position.z));
+    for (let i = 0; i < 10; i++) {
+      const a = (i / 10) * Math.PI * 2;
+      const r = bowl.size.x / 2 + 0.05;
+      splashes.push(new THREE.Vector3(bowl.position.x + Math.sin(a) * r, water + 0.04, bowl.position.z + Math.cos(a) * r));
+    }
+  }
+
   const add = (list: THREE.BufferGeometry[], material: THREE.Material) => {
     if (list.length === 0) return;
     const mesh = new THREE.Mesh(mergeGeometries(list)!, material);

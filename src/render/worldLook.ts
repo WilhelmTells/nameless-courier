@@ -176,7 +176,7 @@ export function weather<T extends THREE.Material>(material: T): T {
  * two coordinates across its main facing axis, in tiles of TILE_METRES, so
  * textures keep their size on pieces of any size. Returns a non-indexed copy.
  */
-export function projectUVs(geo: THREE.BufferGeometry, offset: [number, number] = [0, 0]): THREE.BufferGeometry {
+export function projectUVs(geo: THREE.BufferGeometry, offset: [number, number] = [0, 0], tile = TILE_METRES): THREE.BufferGeometry {
   const g = geo.index ? geo.toNonIndexed() : geo;
   const pos = g.attributes.position;
   const uv = new Float32Array(pos.count * 2);
@@ -189,8 +189,8 @@ export function projectUVs(geo: THREE.BufferGeometry, offset: [number, number] =
     for (let k = 0; k < 3; k++) {
       const p = k === 0 ? a : k === 1 ? b : c;
       const [u, v] = n.x >= n.y && n.x >= n.z ? [p.z, p.y] : n.y >= n.z ? [p.x, p.z] : [p.x, p.y];
-      uv[(i + k) * 2] = u / TILE_METRES + offset[0];
-      uv[(i + k) * 2 + 1] = v / TILE_METRES + offset[1];
+      uv[(i + k) * 2] = u / tile + offset[0];
+      uv[(i + k) * 2 + 1] = v / tile + offset[1];
     }
   }
   g.setAttribute("uv", new THREE.BufferAttribute(uv, 2));
@@ -445,4 +445,65 @@ export function trimGeometry(
   const g = new THREE.BufferGeometry();
   g.setAttribute("position", new THREE.Float32BufferAttribute(out, 3));
   return g;
+}
+
+/** Weathered planks with dark gaps and a cross brace: one crate face per tile. */
+function woodTexture(): THREE.Texture {
+  return canvasTexture((g, n, rnd) => {
+    const planks = 4;
+    for (let i = 0; i < planks; i++) {
+      const base = 92 + rnd() * 30;
+      for (let y = (i * n) / planks; y < ((i + 1) * n) / planks; y++) {
+        for (let x = 0; x < n; x++) {
+          const v = base + (rnd() - 0.5) * 18 + Math.sin(x * 0.4 + i) * 4;
+          g.fillStyle = `rgb(${v},${v * 0.78},${v * 0.55})`;
+          g.fillRect(x, y, 1, 1);
+        }
+      }
+      g.fillStyle = "rgba(20,14,8,0.8)";
+      g.fillRect(0, (i * n) / planks, n, 1);
+    }
+    g.fillStyle = "rgba(40,28,16,0.9)";
+    g.fillRect(0, 0, n, 4);
+    g.fillRect(0, n - 4, n, 4);
+    g.fillRect(0, 0, 4, n);
+    g.fillRect(n - 4, 0, 4, n);
+    g.strokeStyle = "rgba(55,38,22,0.95)";
+    g.lineWidth = 4;
+    g.beginPath();
+    g.moveTo(4, 4);
+    g.lineTo(n - 4, n - 4);
+    g.stroke();
+  }, 61);
+}
+
+/** Rusty metal with two raised bands. */
+function barrelTexture(): THREE.Texture {
+  return canvasTexture((g, n, rnd) => {
+    for (let y = 0; y < n; y++) {
+      for (let x = 0; x < n; x++) {
+        const v = rnd();
+        g.fillStyle = v < 0.5 ? "#4a3022" : v < 0.8 ? "#5e3a24" : v < 0.95 ? "#3a3634" : "#7a5236";
+        g.fillRect(x, y, 1, 1);
+      }
+    }
+    g.fillStyle = "rgba(25,20,18,0.85)";
+    for (const y of [n * 0.18, n * 0.78]) g.fillRect(0, y, n, 3);
+  }, 71);
+}
+
+export type PropMaterial = "crate" | "barrel" | "stone" | "water";
+
+/** The look of a prop (level data `material`), and its texture tile size in metres. */
+export function propLook(material: PropMaterial): { mesh: THREE.Material; tile: number } {
+  switch (material) {
+    case "crate":
+      return { mesh: new THREE.MeshLambertMaterial({ map: woodTexture() }), tile: 1 };
+    case "barrel":
+      return { mesh: new THREE.MeshLambertMaterial({ map: barrelTexture() }), tile: 1 };
+    case "stone":
+      return { mesh: weather(new THREE.MeshLambertMaterial({ color: 0xa8a6a0, map: surfaceTexture("normal", 2) })), tile: 2 };
+    case "water":
+      return { mesh: new THREE.MeshPhongMaterial({ color: 0x24323b, specular: 0x7c8c98, shininess: 90 }), tile: TILE_METRES };
+  }
 }

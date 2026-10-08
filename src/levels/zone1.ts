@@ -12,7 +12,7 @@
 // Overhangs and walls above the route stop the big skips: a full charge
 // under them hits them instead of clearing a whole section.
 
-import { block, ramp } from "./shapes.ts";
+import { barrel, block, crate, fountain, pallet, ramp } from "./shapes.ts";
 import type { Piece, Zone } from "./types.ts";
 
 const FACE_A = -16;
@@ -24,9 +24,9 @@ const pieces: Piece[] = [
   // Yard: open ground framed by low side walls, with crates to hop on.
   block("yard-wall-left", -26.6, -26, 0, 3, FACE_A, 8),
   block("yard-wall-right", 26, 26.6, 0, 3, FACE_A, 8),
-  block("crate-1", -6, -4.5, 0, 0.5, -5, -3.5),
-  block("crate-2", -8.5, -7, 0, 0.7, -8.5, -7),
-  block("crate-stack", -10, -8, 0, 1.5, -12, -10),
+  { ...block("crate-1", -6, -4.5, 0, 0.5, -5, -3.5), material: "crate" },
+  { ...block("crate-2", -8.5, -7, 0, 0.7, -8.5, -7), material: "crate" },
+  { ...block("crate-stack", -10, -8, 0, 1.5, -12, -10), material: "crate" },
   ramp("yard-ramp", -2, -9, 15, 0.8, 2),
 
   // Low steps up to the loading dock (normal bounces).
@@ -89,6 +89,18 @@ const pieces: Piece[] = [
   block("block-c", -24, 16, ROOF_B, 50, -60, -28),
   block("rest-ledge", 16, 20, ROOF_A, ROOF_B + 4, -60, -56),
 ];
+
+// Props on the yard (user: "boxes, barrels or maybe a nice fountain"): solid,
+// placed off the route and checked against new reaches (internal/sim-props.ts).
+pieces.push(
+  ...fountain("fountain", -14, 4, 0),
+  crate("prop-yard-crate-1", 19.6, -1.4, 1.1, 0, 12),
+  crate("prop-yard-crate-2", 20.9, -0.2, 0.8, 0, -20),
+  pallet("prop-yard-pallet", 19.4, 0.4, 0, 8),
+  barrel("prop-yard-barrel-1", 22.6, 4.6, 0),
+  barrel("prop-yard-barrel-2", 23.4, 5.4, 0, 0.9),
+  barrel("prop-yard-barrel-3", 22.7, 5.8, 0),
+);
 
 export const zone1: Zone = {
   id: "zone1",
