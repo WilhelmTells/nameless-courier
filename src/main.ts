@@ -12,6 +12,7 @@ import { inRestSpot, standAmount } from "./core/restCore.ts";
 import { restOffset, restSwing, stepSwing, type SwingConfig } from "./core/swingCore.ts";
 import { OrbitCamera } from "./game/camera.ts";
 import { controlMode, initInput, readInput, setControlMode, setStanding, type ControlMode } from "./game/input.ts";
+import { easyMode, setEasyMode } from "./game/easyMode.ts";
 import { LandingMarker } from "./game/landingMarker.ts";
 import { Pogo } from "./game/pogo.ts";
 import { buildLevel } from "./game/world.ts";
@@ -181,6 +182,11 @@ async function boot(): Promise<void> {
     stats = saved.stats;
   }
   let figures: FigureState = saved ? { memory: saved.figures, talk: null } : NO_FIGURES;
+  /** Easy mode was on at some point in this run: it is marked easy, and its time is not a best time. */
+  let runEasy = saved?.easy ?? false;
+  /** The last rest spot checked in at (easy mode), or null. */
+  let checkpoint = saved?.checkpoint ?? null;
+  const checkpointSpot = () => LEVEL.restSpots.find((r) => r.id === checkpoint) ?? null;
   // Moving pieces follow the run clock, so a reload puts them where they were.
   const placeMovers = (t: number) => {
     levelWorld.place(t);
@@ -206,7 +212,7 @@ async function boot(): Promise<void> {
   let sinceSave = 0;
   const save = () => {
     if (!SAVES || (mode !== "play" && mode !== "paused")) return;
-    const run: RunSave = { version: SAVE_VERSION, level: LEVEL.id, pogo: pogo.snapshot(), yaw: orbit.yaw, stats, figures: { ...figures.memory } };
+    const run: RunSave = { version: SAVE_VERSION, level: LEVEL.id, pogo: pogo.snapshot(), yaw: orbit.yaw, stats, figures: { ...figures.memory }, easy: runEasy, checkpoint };
     writeStorage(RUN_KEY, JSON.stringify(run));
     writeBest();
     sinceSave = 0;
@@ -229,6 +235,8 @@ async function boot(): Promise<void> {
     else bestTime = null;
     afterSummit = 0;
     figures = NO_FIGURES;
+    runEasy = false;
+    checkpoint = null;
     placeMovers(stats.time);
     seenLaunches = pogo.launches;
   };
@@ -242,6 +250,7 @@ async function boot(): Promise<void> {
       `best   ${metres(stats.best)}`,
       `time   ${formatTime(stats.time)}`,
       `falls  ${stats.falls}`,
+      ...(runEasy ? ["easy"] : []),
     ].join("\n");
     if (text !== statsText) statsLabel.textContent = statsText = text;
   };
@@ -252,9 +261,12 @@ async function boot(): Promise<void> {
   initInput(canvas);
   const rideHint = document.querySelector<HTMLDivElement>("#ride-hint")!;
   let rideHintText = "";
+  /** A short message over the hint ("checkpoint"), and until when it shows (page time, s). */
+  let flash = { text: "", until: 0 };
   const showRideHint = () => {
     const r = pogo.ride;
     const text =
+      performance.now() / 1000 < flash.until ? flash.text :
       r.phase === "standing" ? "E: get on" :
       r.phase === "riding" && pogo.inRestSpot() ? (r.requested ? "getting off…" : "E: get off") : "";
     if (text !== rideHintText) rideHint.textContent = rideHintText = text;
@@ -350,6 +362,7 @@ async function boot(): Promise<void> {
       "Wheel          zoom",
       "R              camera behind you",
       "E              get off at a calm spot, and back on",
+      "Q              back to the checkpoint (easy mode)",
       "Esc            pause",
     ].join("\n"),
     wasd: [
@@ -359,9 +372,15 @@ async function boot(): Promise<void> {
       "Wheel          zoom",
       "R              camera behind you",
       "E              get off at a calm spot, and back on",
+      "Q              back to the checkpoint (easy mode)",
       "Esc            pause",
     ].join("\n"),
   };
+  const EASY_HELP = [
+    "Easy mode: getting off at a rest spot saves a checkpoint;",
+    "Q or the pause menu takes you back there. A run that uses it",
+    "is marked easy, and its time does not count as a best time.",
+  ].join("\n");
   /** Settings: the control scheme, and how it plays. `back` returns to where it was opened. */
   const showSettings = (back: () => void) => {
     const pick = (m: ControlMode) => () => {
@@ -369,9 +388,14 @@ async function boot(): Promise<void> {
       showSettings(back);
     };
     const mark = (m: ControlMode) => (controlMode() === m ? "● " : "○ ");
-    screens.ask(`Settings\n\nControls\n\n${CONTROLS_HELP[controlMode()]}`, [
+    const toggleEasy = () => {
+      setEasyMode(!easyMode());
+      showSettings(back);
+    };
+    screens.ask(`Settings\n\nControls\n\n${CONTROLS_HELP[controlMode()]}\n\n${EASY_HELP}`, [
       { label: `${mark("mouse")}Mouse`, action: pick("mouse") },
       { label: `${mark("wasd")}Keyboard (W A S D)`, action: pick("wasd") },
+      { label: `${easyMode() ? "■ " : "□ "}Easy mode`, action: toggleEasy },
       { label: "Back", action: back },
     ]);
     const volume = (key: keyof Volumes) => (v: number) => sound.setVolumes({ ...sound.getVolumes(), [key]: v });
@@ -384,17 +408,35 @@ async function boot(): Promise<void> {
       { label: "Rain", value: v.rain, change: volume("rain") },
     ]);
   };
-  // Fallen into the water: fade out, start again at the bottom, fade back in.
-  // The run goes on (time and falls are kept).
+  // A warp: fade out, put the courier somewhere, fade back in. Used after
+  // falling into the water (back to the start, or in easy mode to the
+  // checkpoint) and by easy mode's Q. The run goes on (time and falls kept).
   let sinkTime = -1;
   let surfaceTime = -1;
+  let warpTo: { point: { x: number; y: number; z: number }; yaw: number } | null = null;
+  /** Where the courier goes back to: the checkpoint in easy mode, else the start. */
+  const returnPoint = () => {
+    const r = easyMode() ? checkpointSpot() : null;
+    return r ? { point: { x: (r.min.x + r.max.x) / 2, y: r.min.y, z: (r.min.z + r.max.z) / 2 }, yaw: orbit.yaw } : { point: START, yaw: 0 };
+  };
+  const startWarp = (to: { point: { x: number; y: number; z: number }; yaw: number }) => {
+    if (sinkTime >= 0 || surfaceTime >= 0) return;
+    warpTo = to;
+    sinkTime = 0;
+    screens.show(0);
+  };
+  const backToCheckpoint = () => {
+    if (mode === "play" && easyMode() && checkpointSpot()) startWarp(returnPoint());
+  };
+  window.addEventListener("keydown", (e) => {
+    if (e.code === "KeyQ" && !e.repeat) backToCheckpoint();
+  });
   const stepSinking = (dt: number) => {
     // Held while paused.
     if (mode !== "play") return;
     if (sinkTime < 0 && surfaceTime < 0) {
       if (testLevel || pogo.pos.y > SINK_Y) return;
-      sinkTime = 0;
-      screens.show(0);
+      startWarp(returnPoint());
     }
     if (sinkTime >= 0) {
       sinkTime += dt;
@@ -402,9 +444,10 @@ async function boot(): Promise<void> {
       if (sinkTime < SINK_FADE) return;
       sinkTime = -1;
       surfaceTime = 0;
-      pogo.reset(START);
-      orbit.yaw = 0;
-      stats = { ...stats, height: START.y, fallRef: START.y };
+      const to = warpTo ?? { point: START, yaw: 0 };
+      pogo.reset(to.point);
+      orbit.yaw = to.yaw;
+      stats = { ...stats, height: to.point.y, fallRef: to.point.y };
       seenLaunches = pogo.launches;
     }
     surfaceTime += dt;
@@ -423,6 +466,7 @@ async function boot(): Promise<void> {
     hud.hidden = true;
     screens.title("Paused", [
       { label: "Resume", action: play },
+      ...(easyMode() && checkpointSpot() ? [{ label: "Return to checkpoint", action: () => (play(), backToCheckpoint()) }] : []),
       { label: "Settings", action: () => showSettings(showPauseMenu) },
       { label: "Quit to title", action: () => (save(), showTitle()) },
     ]);
@@ -438,7 +482,8 @@ async function boot(): Promise<void> {
   const startEnding = () => {
     mode = "ending";
     modeTime = 0;
-    bestTime = bestTime === null ? stats.time : Math.min(bestTime, stats.time);
+    // An easy run's time is not a best time.
+    if (!runEasy) bestTime = bestTime === null ? stats.time : Math.min(bestTime, stats.time);
     if (SAVES) {
       // The run is over: nothing left to continue.
       writeStorage(RUN_KEY, null);
@@ -449,7 +494,12 @@ async function boot(): Promise<void> {
   };
   const showEndingStats = () => {
     document.exitPointerLock();
-    screens.setInfo([`time   ${formatTime(stats.time)}`, `falls  ${stats.falls}`, `best   ${formatTime(bestTime ?? stats.time)}`].join("\n"));
+    screens.setInfo([
+      `time   ${formatTime(stats.time)}`,
+      `falls  ${stats.falls}`,
+      `best   ${bestTime === null ? "–" : formatTime(bestTime)}`,
+      ...(runEasy ? ["", "easy mode"] : []),
+    ].join("\n"));
     screens.setMenu([{ label: "New run", action: startOpening }]);
   };
   // Any key or click skips ahead: the opening to its fade, the ending (once dark) to its stats.
@@ -579,6 +629,17 @@ async function boot(): Promise<void> {
     }
 
     stepSinking(Math.min(0.1, Math.max(0, frameDt)));
+    // Easy mode: the run is marked easy, and getting off at a rest spot checks in there.
+    if (mode === "play" && easyMode()) {
+      runEasy = true;
+      if (pogo.ride.phase === "standing") {
+        const here = LEVEL.restSpots.find((r) => r.id !== SUMMIT_ID && inRestSpot([r], pogo.pos));
+        if (here && here.id !== checkpoint) {
+          checkpoint = here.id;
+          flash = { text: "checkpoint", until: performance.now() / 1000 + 2.5 };
+        }
+      }
+    }
 
     // Interpolate between the last two simulation states.
     const a = loop.alpha;

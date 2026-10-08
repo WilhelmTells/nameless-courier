@@ -18,6 +18,8 @@ const run: RunSave = {
   yaw: 1.2,
   stats: { height: 10, best: 13.5, falls: 2, fallRef: 10, time: 321.5 },
   figures: { door: { heard: true, below: false }, builder: { heard: true, below: true } },
+  easy: true,
+  checkpoint: "zone-3-top",
 };
 
 test("a saved run reads back unchanged", () => {
@@ -60,6 +62,8 @@ test("missing or malformed fields give no run", () => {
     { ...run, yaw: null },
     { ...run, figures: [] as unknown },
     { ...run, figures: { door: { heard: "yes", below: false } } },
+    { ...run, easy: "yes" },
+    { ...run, checkpoint: 3 },
   ];
   for (const b of broken) assert.equal(parseRun(JSON.stringify(b), "zone1"), null);
   // JSON turns non-finite numbers into null.
@@ -79,4 +83,11 @@ test("best clear time reads back; before a first clear there is none", () => {
   assert.equal(parseBestTime(JSON.stringify({ height: 18.5, time: 0 })), null);
   assert.equal(parseBestTime(null), null);
   assert.equal(parseBestTime("x"), null);
+});
+
+test("older saves without easy mode load as a normal run with no checkpoint", () => {
+  const { easy: _e, checkpoint: _c, ...old } = run;
+  const loaded = parseRun(JSON.stringify(old), "zone1");
+  assert.equal(loaded?.easy, false);
+  assert.equal(loaded?.checkpoint, null);
 });

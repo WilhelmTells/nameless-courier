@@ -31,6 +31,10 @@ export interface RunSave {
   stats: RunStats;
   /** What each figure has said. Missing in older saves, which means none met. */
   figures: Record<string, FigureMemory>;
+  /** Easy mode was on at some point in this run. Missing in older saves: false. */
+  easy: boolean;
+  /** Id of the last rest spot checked in at (easy mode), or null. Missing in older saves: null. */
+  checkpoint: string | null;
 }
 
 type Obj = Record<string, unknown>;
@@ -94,7 +98,9 @@ export function parseRun(text: string | null, level: string, aliases: Readonly<R
   if (!isObj(data) || data.version !== SAVE_VERSION || (data.level !== level && !(typeof data.level === "string" && Object.hasOwn(aliases, data.level) && aliases[data.level] === level))) return null;
   const pogo = pogoState(data.pogo), s = stats(data.stats), yaw = num(data.yaw), met = figures(data.figures);
   if (!pogo || !s || yaw === null || !met) return null;
-  return { version: SAVE_VERSION, level, pogo, yaw, stats: s, figures: met };
+  if (data.easy !== undefined && typeof data.easy !== "boolean") return null;
+  if (data.checkpoint !== undefined && data.checkpoint !== null && typeof data.checkpoint !== "string") return null;
+  return { version: SAVE_VERSION, level, pogo, yaw, stats: s, figures: met, easy: data.easy === true, checkpoint: typeof data.checkpoint === "string" ? data.checkpoint : null };
 }
 
 /** The saved best height, or null. */
