@@ -3,6 +3,7 @@
 // tugs at the courier's cape, harder the higher they climb. Look only.
 
 import * as THREE from "three";
+import { alphaTexture } from "./lantern.ts";
 
 /** Fixed pseudo-random numbers, so the weather starts the same every time. */
 function random(seed: number): () => number {
@@ -37,22 +38,18 @@ export function capeWind(time: number, height: number, out: THREE.Vector3): THRE
   return out.copy(WIND_DIR).multiplyScalar(windStrength(time) * reach * flutter);
 }
 
-/** A soft, uneven blot of mist, drawn once. */
+/** A soft, uneven blot of mist: overlapping round puffs (computed, not a canvas gradient). */
 function mistTexture(): THREE.Texture {
-  const n = 64;
-  const canvas = document.createElement("canvas");
-  canvas.width = canvas.height = n;
-  const g = canvas.getContext("2d")!;
   const rnd = random(81);
-  for (let i = 0; i < 14; i++) {
-    const x = n * (0.25 + rnd() * 0.5), y = n * (0.3 + rnd() * 0.4), r = n * (0.15 + rnd() * 0.2);
-    const grad = g.createRadialGradient(x, y, 0, x, y, r);
-    grad.addColorStop(0, "rgba(255,255,255,0.35)");
-    grad.addColorStop(1, "rgba(255,255,255,0)");
-    g.fillStyle = grad;
-    g.fillRect(0, 0, n, n);
-  }
-  return new THREE.CanvasTexture(canvas);
+  const puffs = Array.from({ length: 14 }, () => ({ x: 0.25 + rnd() * 0.5, y: 0.3 + rnd() * 0.4, r: 0.15 + rnd() * 0.2 }));
+  return alphaTexture(64, (x, y) => {
+    let a = 0;
+    for (const p of puffs) {
+      const b = 0.35 * Math.max(0, 1 - Math.hypot(x - p.x, y - p.y) / p.r);
+      a = a + b * (1 - a);
+    }
+    return a;
+  });
 }
 
 interface Debris {

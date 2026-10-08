@@ -11,20 +11,35 @@ let haloTexture: THREE.Texture | null = null;
 /** Every burning lantern made so far (moths gather round them). */
 export const litLanterns: THREE.Object3D[] = [];
 
-/** A soft round glow, drawn once on a canvas. */
+/**
+ * A white texture whose alpha is `alpha(x, y)` (0..1, coordinates 0..1).
+ * Computed pixel by pixel: Safari dithers canvas gradients with coloured
+ * noise, which showed as coloured dots in the moon and the mist.
+ */
+export function alphaTexture(size: number, alpha: (x: number, y: number) => number): THREE.Texture {
+  const data = new Uint8Array(size * size * 4);
+  for (let j = 0; j < size; j++) {
+    for (let i = 0; i < size; i++) {
+      const k = (j * size + i) * 4;
+      data[k] = data[k + 1] = data[k + 2] = 255;
+      data[k + 3] = Math.round(255 * Math.min(1, Math.max(0, alpha((i + 0.5) / size, (j + 0.5) / size))));
+    }
+  }
+  const t = new THREE.DataTexture(data, size, size);
+  t.magFilter = THREE.LinearFilter;
+  t.minFilter = THREE.LinearMipmapLinearFilter;
+  t.generateMipmaps = true;
+  t.needsUpdate = true;
+  return t;
+}
+
+/** A soft round glow: bright core, falling to nothing at the edge. */
 function halo(): THREE.Texture {
   if (haloTexture) return haloTexture;
-  const size = 64;
-  const canvas = document.createElement("canvas");
-  canvas.width = canvas.height = size;
-  const g = canvas.getContext("2d")!;
-  const grad = g.createRadialGradient(size / 2, size / 2, 0, size / 2, size / 2, size / 2);
-  grad.addColorStop(0, "rgba(255,255,255,1)");
-  grad.addColorStop(0.25, "rgba(255,255,255,0.45)");
-  grad.addColorStop(1, "rgba(255,255,255,0)");
-  g.fillStyle = grad;
-  g.fillRect(0, 0, size, size);
-  haloTexture = new THREE.CanvasTexture(canvas);
+  haloTexture = alphaTexture(128, (x, y) => {
+    const r = Math.hypot(x - 0.5, y - 0.5) * 2;
+    return r < 0.25 ? 1 - (r / 0.25) * 0.55 : 0.45 * Math.max(0, 1 - (r - 0.25) / 0.75);
+  });
   return haloTexture;
 }
 
