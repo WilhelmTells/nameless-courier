@@ -43,7 +43,9 @@ const pieces: Piece[] = [
 
   // Zone 3's chimney opens in the court floor at the back left corner: a hood
   // and a curb keep falls out of it; the way out of it to the right stays open.
-  block("chimney-hood", -23, -17.5, 77.5, 78, -59, -53.5),
+  // The hood stops short of the curb: 2.3 m over the curb's top pinned the
+  // pogo between the two (user).
+  block("chimney-hood", -23, -17.5, 77.5, 78, -59, -54),
   block("chimney-curb", -23, -17.5, COURT, COURT + 1.2, -54, -53.5),
 
   // Back face: the first pad, on the court floor, is the only way up to the

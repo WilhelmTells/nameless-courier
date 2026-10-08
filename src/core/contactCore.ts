@@ -22,6 +22,14 @@ export function surfaceKind(normal: Vec3, cfg: Pick<PogoConfig, "wallAngle">): S
   return normal.y < Math.cos(cfg.wallAngle * DEG) ? "wall" : "floor";
 }
 
+/**
+ * True for a ceiling: a surface facing down, steeper than `wallAngle` from a
+ * wall. Knocking the head on one keeps the lean (see Pogo.bonk).
+ */
+export function isCeiling(normal: Vec3, cfg: Pick<PogoConfig, "wallAngle">): boolean {
+  return normal.y <= -Math.cos(cfg.wallAngle * DEG);
+}
+
 /** True for walls and overhangs that can be kicked off or pushed away from (not floors, not ceilings). */
 export function isWall(normal: Vec3, cfg: Pick<PogoConfig, "wallAngle">): boolean {
   return Math.abs(normal.y) < Math.cos(cfg.wallAngle * DEG) && Math.hypot(normal.x, normal.z) > 1e-9;

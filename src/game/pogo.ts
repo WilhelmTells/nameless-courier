@@ -3,7 +3,7 @@
 
 import RAPIER from "@dimforge/rapier3d-compat";
 import { pogoConfig as cfg } from "../config.ts";
-import { angleBetween, bonkVelocity, slopeLaunch, tipContactValid, wallKick, wallKickAllowed } from "../core/contactCore.ts";
+import { angleBetween, bonkVelocity, isCeiling, slopeLaunch, tipContactValid, wallKick, wallKickAllowed } from "../core/contactCore.ts";
 import {
   applyMouseLean,
   carriedApex,
@@ -404,7 +404,10 @@ export class Pogo {
     this.vel = add(bonk.vel, carrier);
     const speed = -dot(incoming, n);
     if (bonk.hard || speed > SILENT_KNOCK) this.hear("bonk", "normal", speed, 0, collider);
-    if (bonk.hard) {
+    // A knock on a ceiling keeps the lean: under a low ceiling every bounce
+    // hits it, and a lock would land every bounce upright, pinning the pogo
+    // between floor and ceiling for good (user, chimney curb under the hood).
+    if (bonk.hard && !isCeiling(n, cfg)) {
       this.bonkLock = cfg.bonkLockTime;
       this.steering = false;
       this.kickDir = NO_LEAN;

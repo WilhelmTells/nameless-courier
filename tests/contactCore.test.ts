@@ -1,7 +1,7 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
 import { DEFAULT_POGO } from "../src/config.ts";
-import { angleBetween, bonkVelocity, slopeLaunch, surfaceKind, tipContactValid, wallKick, wallKickAllowed } from "../src/core/contactCore.ts";
+import { angleBetween, bonkVelocity, isCeiling, slopeLaunch, surfaceKind, tipContactValid, wallKick, wallKickAllowed } from "../src/core/contactCore.ts";
 import { launchVelocity, stickAxis, type Vec3 } from "../src/core/pogoCore.ts";
 
 const cfg = DEFAULT_POGO;
@@ -123,3 +123,10 @@ function scaleTo1(v: Vec3): Vec3 {
   const l = Math.hypot(v.x, v.y, v.z);
   return { x: v.x / l, y: v.y / l, z: v.z / l };
 }
+
+test("only surfaces facing down count as ceilings", () => {
+  assert.ok(isCeiling({ x: 0, y: -1, z: 0 }, cfg));
+  assert.ok(!isCeiling({ x: 1, y: 0, z: 0 }, cfg));
+  assert.ok(!isCeiling({ x: 0, y: 1, z: 0 }, cfg));
+  assert.ok(!isCeiling({ x: 0.9, y: -0.44, z: 0 }, cfg));
+});
