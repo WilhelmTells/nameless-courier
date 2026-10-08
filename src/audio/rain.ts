@@ -19,13 +19,13 @@ const DROP_RATE = 26;
 const inside = (rooms: readonly Room[], p: Vec3) =>
   rooms.some((r) => p.x > r.min.x && p.x < r.max.x && p.y > r.min.y && p.y < r.max.y && p.z > r.min.z && p.z < r.max.z);
 
-export function addRainSound(sound: Sound, rooms: readonly Room[]): (courier: Vec3, time: number) => void {
-  let update: ((courier: Vec3, time: number) => void) | null = null;
+export function addRainSound(sound: Sound, rooms: readonly Room[]): (courier: Vec3, time: number, calm: number) => void {
+  let update: ((courier: Vec3, time: number, calm: number) => void) | null = null;
   sound.whenReady((a) => (update = build(a, rooms)));
-  return (courier, time) => update?.(courier, time);
+  return (courier, time, calm) => update?.(courier, time, calm);
 }
 
-function build(a: Audio, rooms: readonly Room[]): (courier: Vec3, time: number) => void {
+function build(a: Audio, rooms: readonly Room[]): (courier: Vec3, time: number, calm: number) => void {
   const { ctx } = a;
   const rnd = random(4711);
   const filter = (type: BiquadFilterType, freq: number, q = 0.7) => {
@@ -85,12 +85,13 @@ function build(a: Audio, rooms: readonly Room[]): (courier: Vec3, time: number) 
   let nextDrop = ctx.currentTime;
   let fadedIn = false;
 
-  return (courier, time) => {
+  /** `calm` 0..1: the rain thins out at the summit. */
+  return (courier, time, calm) => {
     const now = ctx.currentTime;
     const indoors = inside(rooms, courier);
     const gust = 0.8 + 0.3 * windStrength(time);
     // Fade in at the start rather than switching on.
-    level.gain.setTargetAtTime((indoors ? 0.6 : 1) * gust, now, fadedIn ? 0.4 : 1.5);
+    level.gain.setTargetAtTime((indoors ? 0.6 : 1) * gust * (1 - 0.85 * calm), now, fadedIn ? 0.4 : 1.5);
     fadedIn = true;
     roof.frequency.setTargetAtTime(indoors ? 650 : 12000, now, 0.3);
     if (nextDrop < now) nextDrop = now;

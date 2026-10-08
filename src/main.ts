@@ -35,10 +35,11 @@ import { Sound } from "./audio/engine.ts";
 import { addMurmur } from "./audio/murmur.ts";
 import { addRainSound } from "./audio/rain.ts";
 import { addTitleSong } from "./audio/titleSong.ts";
+import { addSummitSound } from "./audio/summit.ts";
 import { addPogoSounds } from "./audio/pogoSounds.ts";
 import { WATER } from "./levels/surroundings.ts";
 import { ENDING, FIGURE_LINES, OPENING } from "./story.ts";
-import { startMusic, type Volumes } from "./core/audioCore.ts";
+import { startMusic, summitCalm, type Volumes } from "./core/audioCore.ts";
 import { Screens } from "./ui/screens.ts";
 import { VERSION } from "./version.ts";
 
@@ -157,6 +158,13 @@ async function boot(): Promise<void> {
   const raining = LEVEL.zones.length > 0;
   const updateRain = raining ? addRain(scene, LEVEL.rooms ?? []) : () => {};
   const updateRainSound = raining ? addRainSound(sound, LEVEL.rooms ?? []) : () => {};
+  const updateSummitSound = addSummitSound(sound);
+  // The top (user: change the mood on arrival): the rain thins, the fog opens,
+  // the noise falls away and a warm chord rises.
+  const summitSpot = LEVEL.restSpots.find((r) => r.id === SUMMIT_ID);
+  const summitCentre = summitSpot && new THREE.Vector3((summitSpot.min.x + summitSpot.max.x) / 2, summitSpot.min.y, (summitSpot.min.z + summitSpot.max.z) / 2);
+  const FOG = { near: fog.near, far: fog.far };
+  let calm = 0;
   const updateClubDoor = LEVEL.zones.length > 0 ? addClubDoor(scene) : () => {};
 
   const levelWorld = buildLevel(LEVEL, scene, physics);
@@ -707,9 +715,13 @@ async function boot(): Promise<void> {
     // The pogo and the figures are heard only in play; menus keep the ambience.
     sound.setMenu(mode === "title" || mode === "paused");
     sound.listen(camera);
-    updateRain(camera.position, time / 1000, Math.min(0.1, Math.max(0, frameDt)));
-    updateRainSound(tip, time / 1000);
-    updateAmbience(tip, time / 1000);
+    updateRain(camera.position, time / 1000, Math.min(0.1, Math.max(0, frameDt)), calm);
+    updateRainSound(tip, time / 1000, calm);
+    calm = mode === "ending" ? 1 : summitCentre ? summitCalm(tip.distanceTo(summitCentre)) : 0;
+    fog.near = FOG.near + 10 * calm;
+    fog.far = FOG.far + 40 * calm;
+    updateSummitSound(calm);
+    updateAmbience(tip, time / 1000, calm);
     // The title song plays on the title screen and carries on at the bottom of
     // the climb, fading with height; the club plays everywhere but the title.
     updateTitleSong(mode === "title" ? 1 : mode === "ending" ? 0 : startMusic(tip.y));

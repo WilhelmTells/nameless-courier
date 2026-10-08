@@ -22,13 +22,13 @@ const CLUNK_EVERY = [2.5, 7];
 const inside = (rooms: readonly Room[], p: Vec3) =>
   rooms.some((r) => p.x > r.min.x && p.x < r.max.x && p.y > r.min.y && p.y < r.max.y && p.z > r.min.z && p.z < r.max.z);
 
-export function addAmbience(sound: Sound, rooms: readonly Room[]): (courier: Vec3, time: number) => void {
-  let update: ((courier: Vec3, time: number) => void) | null = null;
+export function addAmbience(sound: Sound, rooms: readonly Room[]): (courier: Vec3, time: number, calm: number) => void {
+  let update: ((courier: Vec3, time: number, calm: number) => void) | null = null;
   sound.whenReady((a) => (update = build(a, rooms)));
-  return (courier, time) => update?.(courier, time);
+  return (courier, time, calm) => update?.(courier, time, calm);
 }
 
-function build(a: Audio, rooms: readonly Room[]): (courier: Vec3, time: number) => void {
+function build(a: Audio, rooms: readonly Room[]): (courier: Vec3, time: number, calm: number) => void {
   const { ctx } = a;
   const rnd = random(977);
   const noise = (rate = 1) => {
@@ -145,7 +145,9 @@ function build(a: Audio, rooms: readonly Room[]): (courier: Vec3, time: number) 
   let indoorAmount = 0;
   let lastTime = 0;
 
-  return (courier, time) => {
+  /** `calm` 0..1: at the summit the structure's noises fall away. */
+  return (courier, time, calm) => {
+    const still = 1 - calm;
     const now = ctx.currentTime;
     const dt = Math.min(0.1, Math.max(0, time - lastTime));
     lastTime = time;
@@ -155,17 +157,17 @@ function build(a: Audio, rooms: readonly Room[]): (courier: Vec3, time: number) 
     const outside = windLevel(courier.y, strength, false);
     const w = outside + (windLevel(courier.y, strength, true) - outside) * indoorAmount;
     // Slow enough that a gust swells rather than jumps.
-    set(windGain.gain, LEVEL.wind * w, 0.8);
+    set(windGain.gain, LEVEL.wind * w * (1 - 0.8 * calm), 0.8);
     set(windBand.frequency, 260 + 520 * w, 0.8);
     set(windBody.frequency, 380 + 900 * w * (1 - indoorAmount) - 160 * indoorAmount, 0.8);
     // The whistle only in strong wind, high up.
-    set(whistleGain.gain, LEVEL.whistle * Math.max(0, w - 0.45) * 2);
+    set(whistleGain.gain, LEVEL.whistle * Math.max(0, w - 0.45) * 2 * still);
     set(whistle.frequency, 1100 + 700 * strength, 0.6);
-    set(humGain.gain, LEVEL.hum * (indoors ? 2.2 : 1));
+    set(humGain.gain, LEVEL.hum * (indoors ? 2.2 : 1) * still);
 
     // The machinery comes and goes over a few minutes.
     const swell = 0.5 + 0.5 * Math.sin(time * 0.043) * Math.sin(time * 0.017 + 1);
-    set(machine.gain, LEVEL.machine * (0.25 + 0.75 * swell) * (indoors ? 1.5 : 1), 1);
+    set(machine.gain, LEVEL.machine * (0.25 + 0.75 * swell) * (indoors ? 1.5 : 1) * still, 1);
     if (now > nextClunk) {
       clunk(now, 0.9);
       if (rnd() < 0.4) clunk(now + 0.12 + rnd() * 0.2, 0.5);

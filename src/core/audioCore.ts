@@ -41,6 +41,15 @@ export function startMusic(height: number): number {
   return x * x * (3 - 2 * x);
 }
 
+/** The summit calms: full within `near` m of it, nothing beyond `far` m. */
+export const SUMMIT_CALM = { near: 4, far: 25 };
+
+/** How calm it is at `distance` m from the summit, 0..1 (smooth). */
+export function summitCalm(distance: number): number {
+  const x = clamp01((SUMMIT_CALM.far - distance) / (SUMMIT_CALM.far - SUMMIT_CALM.near));
+  return x * x * (3 - 2 * x);
+}
+
 /** Height at which the wind is at its loudest, m. */
 export const WIND_FULL_HEIGHT = 140;
 

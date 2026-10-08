@@ -1,7 +1,7 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
 import {
-  arrangement, CLUB_CUTOFF, CLUB_REACH, clubClap, clubHat, clubKick, clubMix, CLUB_BASS, STAB_STEPS, DEFAULT_VOLUMES, fallRush, FALL_RUSH, startMusic, START_MUSIC, impactLevel,
+  arrangement, CLUB_CUTOFF, CLUB_REACH, clubClap, clubHat, clubKick, clubMix, CLUB_BASS, STAB_STEPS, DEFAULT_VOLUMES, fallRush, FALL_RUSH, startMusic, START_MUSIC, summitCalm, SUMMIT_CALM, impactLevel,
   nextSyllable, parseVolumes, random, springPitch, VOWELS, windLevel, WIND_FULL_HEIGHT,
 } from "../src/core/audioCore.ts";
 
@@ -119,4 +119,12 @@ test("the title song fades out as the courier climbs", () => {
   assert.ok(startMusic(10) < 1 && startMusic(10) > startMusic(18));
   assert.equal(startMusic(START_MUSIC.gone), 0);
   assert.equal(startMusic(100), 0);
+});
+
+test("the summit calms within a few metres and not at all far off", () => {
+  assert.equal(summitCalm(0), 1);
+  assert.equal(summitCalm(SUMMIT_CALM.near), 1);
+  assert.ok(summitCalm(10) > summitCalm(20));
+  assert.equal(summitCalm(SUMMIT_CALM.far), 0);
+  assert.equal(summitCalm(200), 0);
 });

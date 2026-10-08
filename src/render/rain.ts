@@ -17,6 +17,7 @@ const FALL_SPEED = 15;
 const WIND_PUSH = 5;
 /** A streak shows the drop's path over this long, s. */
 const STREAK = 0.04;
+const OPACITY = 0.32;
 
 /** Fixed pseudo-random numbers, so the rain starts the same every time. */
 function random(seed: number): () => number {
@@ -27,7 +28,8 @@ function random(seed: number): () => number {
   };
 }
 
-export function addRain(scene: THREE.Scene, rooms: readonly Room[]): (camera: THREE.Vector3, time: number, dt: number) => void {
+/** The update takes `calm` 0..1: the rain thins out at the summit. */
+export function addRain(scene: THREE.Scene, rooms: readonly Room[]): (camera: THREE.Vector3, time: number, dt: number, calm: number) => void {
   const rnd = random(2024);
   const offsets = new Float32Array(DROPS * 3);
   const speeds = new Float32Array(DROPS);
@@ -42,10 +44,8 @@ export function addRain(scene: THREE.Scene, rooms: readonly Room[]): (camera: TH
   const attr = new THREE.BufferAttribute(positions, 3);
   attr.setUsage(THREE.DynamicDrawUsage);
   geo.setAttribute("position", attr);
-  const lines = new THREE.LineSegments(
-    geo,
-    new THREE.LineBasicMaterial({ color: 0xa4afc0, transparent: true, opacity: 0.32, depthWrite: false }),
-  );
+  const material = new THREE.LineBasicMaterial({ color: 0xa4afc0, transparent: true, opacity: OPACITY, depthWrite: false });
+  const lines = new THREE.LineSegments(geo, material);
   // It moves with the camera: never culled.
   lines.frustumCulled = false;
   scene.add(lines);
@@ -53,7 +53,9 @@ export function addRain(scene: THREE.Scene, rooms: readonly Room[]): (camera: TH
   const inside = (x: number, y: number, z: number) =>
     rooms.some((r) => x > r.min.x && x < r.max.x && y > r.min.y && y < r.max.y && z > r.min.z && z < r.max.z);
 
-  return (camera, time, dt) => {
+  return (camera, time, dt, calm) => {
+    material.opacity = OPACITY * (1 - 0.9 * calm);
+    lines.visible = calm < 0.99;
     const wind = windStrength(time) * WIND_PUSH;
     const vx = WIND_DIR.x * wind;
     const vz = WIND_DIR.z * wind;
