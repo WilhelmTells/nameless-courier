@@ -4,9 +4,26 @@
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <title>The Endless Journey of a Nameless Courier</title>
+    <link rel="icon" type="image/svg+xml" href="/favicon.svg" />
+    <style>
+      /* Shown until the game has loaded; styled here so it shows before anything else. */
+      #loading {
+        position: fixed;
+        inset: 0;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        background: #1c1f25;
+        color: #c8c6c0;
+        font: 14px/1.6 ui-monospace, "SF Mono", Menlo, Consolas, monospace;
+        letter-spacing: 0.1em;
+        z-index: 10;
+      }
+    </style>
     <link rel="stylesheet" href="/src/style.css" />
   </head>
   <body>
+    <div id="loading">loading…</div>
     <canvas id="game"></canvas>
     <div id="hud">
       <div id="stats"></div>

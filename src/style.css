@@ -110,6 +110,17 @@ body {
   white-space: pre-line;
 }
 
+@media (max-width: 600px) {
+  #screen.splash #screen-heading {
+    font-size: 20px;
+  }
+}
+
+#screen.splash #screen-info {
+  text-align: center;
+  opacity: 0.6;
+}
+
 #screen.splash #screen-menu button {
   padding: 6px 32px;
   letter-spacing: 0.1em;

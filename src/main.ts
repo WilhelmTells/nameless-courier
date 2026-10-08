@@ -528,8 +528,13 @@ async function boot(): Promise<void> {
   const showSplash = () => {
     hud.hidden = true;
     screens.splash(TITLE.replace(" of ", "\nof "), [{ label: "Play", action: showTitle }]);
+    // Phones and tablets: the game needs a keyboard and mouse; say so before they try.
+    if (matchMedia("(pointer: coarse)").matches && !matchMedia("(pointer: fine)").matches) {
+      screens.setInfo("This game needs a keyboard and mouse.");
+    }
   };
   if (mode === "title") showSplash();
+  document.querySelector("#loading")?.remove();
 
   function resize(): void {
     const w = window.innerWidth;
@@ -742,4 +747,9 @@ async function boot(): Promise<void> {
   });
 }
 
-boot();
+boot().catch((error: unknown) => {
+  // Without WebGL or WebAssembly the game cannot start: say so instead of loading for ever.
+  const loading = document.querySelector("#loading");
+  if (loading) loading.textContent = "This browser could not start the game.";
+  throw error;
+});
