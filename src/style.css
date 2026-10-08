@@ -51,6 +51,23 @@ body {
   opacity: 0.8;
 }
 
+#speech {
+  position: absolute;
+  left: 16px;
+  right: 16px;
+  bottom: 72px;
+  text-align: center;
+  font-size: 15px;
+  color: #e4e1d8;
+  text-shadow: 0 0 6px #000;
+  opacity: 0;
+  transition: opacity 0.6s;
+}
+
+#speech.shown {
+  opacity: 1;
+}
+
 #charge {
   position: absolute;
   left: 50%;

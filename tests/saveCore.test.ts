@@ -17,6 +17,7 @@ const run: RunSave = {
   },
   yaw: 1.2,
   stats: { height: 10, best: 13.5, falls: 2, fallRef: 10, time: 321.5 },
+  figures: { door: { heard: true, below: false }, builder: { heard: true, below: true } },
 };
 
 test("a saved run reads back unchanged", () => {
@@ -44,6 +45,11 @@ test("a save under an old level id loads as the level it became", () => {
   assert.equal(parseRun(JSON.stringify({ ...run, level: "toString" }), "tower", aliases), null);
 });
 
+test("saves from before the figures load with none met", () => {
+  const { figures: _, ...old } = run;
+  assert.deepEqual(parseRun(JSON.stringify(old), "zone1")?.figures, {});
+});
+
 test("missing or malformed fields give no run", () => {
   const broken = [
     { ...run, pogo: { ...run.pogo, pos: { x: 1, y: "12", z: 0 } } },
@@ -52,6 +58,8 @@ test("missing or malformed fields give no run", () => {
     { ...run, stats: { ...run.stats, falls: -1 } },
     { ...run, stats: { ...run.stats, time: undefined } },
     { ...run, yaw: null },
+    { ...run, figures: [] as unknown },
+    { ...run, figures: { door: { heard: "yes", below: false } } },
   ];
   for (const b of broken) assert.equal(parseRun(JSON.stringify(b), "zone1"), null);
   // JSON turns non-finite numbers into null.

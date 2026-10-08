@@ -1,6 +1,7 @@
 // Save data for the current run, the best height and the best clear time. Parsing checks every
 // field; anything missing or malformed gives no save rather than a broken one.
 
+import type { FigureMemory } from "./figureCore.ts";
 import type { RunStats } from "./fallCore.ts";
 import type { Vec2, Vec3 } from "./pogoCore.ts";
 
@@ -28,6 +29,8 @@ export interface RunSave {
   /** Camera facing, radians. */
   yaw: number;
   stats: RunStats;
+  /** What each figure has said. Missing in older saves, which means none met. */
+  figures: Record<string, FigureMemory>;
 }
 
 type Obj = Record<string, unknown>;
@@ -65,6 +68,17 @@ function stats(v: unknown): RunStats | null {
   return { height, best, falls, fallRef, time };
 }
 
+function figures(v: unknown): Record<string, FigureMemory> | null {
+  if (v === undefined) return {};
+  if (!isObj(v) || Array.isArray(v)) return null;
+  const out: Record<string, FigureMemory> = {};
+  for (const [id, m] of Object.entries(v)) {
+    if (!isObj(m) || typeof m.heard !== "boolean" || typeof m.below !== "boolean") return null;
+    out[id] = { heard: m.heard, below: m.below };
+  }
+  return out;
+}
+
 /**
  * The saved run for `level`, or null if there is none or it cannot be used.
  * A save under an old id that `aliases` maps to `level` counts as `level`.
@@ -78,9 +92,9 @@ export function parseRun(text: string | null, level: string, aliases: Readonly<R
     return null;
   }
   if (!isObj(data) || data.version !== SAVE_VERSION || (data.level !== level && !(typeof data.level === "string" && Object.hasOwn(aliases, data.level) && aliases[data.level] === level))) return null;
-  const pogo = pogoState(data.pogo), s = stats(data.stats), yaw = num(data.yaw);
-  if (!pogo || !s || yaw === null) return null;
-  return { version: SAVE_VERSION, level, pogo, yaw, stats: s };
+  const pogo = pogoState(data.pogo), s = stats(data.stats), yaw = num(data.yaw), met = figures(data.figures);
+  if (!pogo || !s || yaw === null || !met) return null;
+  return { version: SAVE_VERSION, level, pogo, yaw, stats: s, figures: met };
 }
 
 /** The saved best height, or null. */

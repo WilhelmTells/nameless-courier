@@ -3,6 +3,7 @@ import RAPIER from "@dimforge/rapier3d-compat";
 import { FALL_HEIGHT, pogoConfig, SIM_HZ } from "./config.ts";
 import { formatTime, newStats, onLaunch } from "./core/fallCore.ts";
 import { parseBest, parseBestTime, parseRun, SAVE_VERSION, type RunSave } from "./core/saveCore.ts";
+import { currentLine, NO_FIGURES, stepFigures, type FigureState } from "./core/figureCore.ts";
 import { endingDarkEnd, endingStatsAt, endingView, openingFadeStart, openingView } from "./core/frameCore.ts";
 import { advanceLoop } from "./core/loopCore.ts";
 import { followYaw } from "./core/cameraCore.ts";
@@ -15,8 +16,9 @@ import { Pogo } from "./game/pogo.ts";
 import { buildLevel } from "./game/world.ts";
 import type { FlyCamera } from "./game/flyCamera.ts";
 import { DEFAULT_LEVEL, LEVEL_ALIASES, levelFromSearch, teleportTargets, type TeleportTarget } from "./levels/index.ts";
+import { createFigure } from "./render/figureRig.ts";
 import { createPogoRig } from "./render/pogoRig.ts";
-import { ENDING, OPENING } from "./story.ts";
+import { ENDING, FIGURE_LINES, OPENING } from "./story.ts";
 import { Screens } from "./ui/screens.ts";
 import { VERSION } from "./version.ts";
 
@@ -110,6 +112,8 @@ async function boot(): Promise<void> {
   const marker = new LandingMarker(physics);
   scene.add(marker.group);
 
+  for (const f of LEVEL.figures) scene.add(createFigure(f));
+
   let stats = newStats(START.y);
   const saved = SAVES ? parseRun(readStorage(RUN_KEY), LEVEL.id, LEVEL_ALIASES) : null;
   if (saved) {
@@ -117,6 +121,7 @@ async function boot(): Promise<void> {
     orbit.yaw = saved.yaw;
     stats = saved.stats;
   }
+  let figures: FigureState = saved ? { memory: saved.figures, talk: null } : NO_FIGURES;
   // Moving pieces follow the run clock, so a reload puts them where they were.
   const placeMovers = (t: number) => {
     levelWorld.place(t);
@@ -142,7 +147,7 @@ async function boot(): Promise<void> {
   let sinceSave = 0;
   const save = () => {
     if (!SAVES || mode !== "play") return;
-    const run: RunSave = { version: SAVE_VERSION, level: LEVEL.id, pogo: pogo.snapshot(), yaw: orbit.yaw, stats };
+    const run: RunSave = { version: SAVE_VERSION, level: LEVEL.id, pogo: pogo.snapshot(), yaw: orbit.yaw, stats, figures: { ...figures.memory } };
     writeStorage(RUN_KEY, JSON.stringify(run));
     writeBest();
     sinceSave = 0;
@@ -164,6 +169,7 @@ async function boot(): Promise<void> {
     if (keepBest) stats.best = Math.max(stats.best, best);
     else bestTime = null;
     afterSummit = 0;
+    figures = NO_FIGURES;
     placeMovers(stats.time);
     seenLaunches = pogo.launches;
   };
@@ -193,6 +199,16 @@ async function boot(): Promise<void> {
       r.phase === "standing" ? "E: get on" :
       r.phase === "riding" && pogo.inRestSpot() ? (r.requested ? "getting off…" : "E: get off") : "";
     if (text !== rideHintText) rideHint.textContent = rideHintText = text;
+  };
+  const speech = document.querySelector<HTMLDivElement>("#speech")!;
+  let speechLine = "";
+  // A line fades out with its text still there; the next line replaces it.
+  const showSpeech = () => {
+    const line = currentLine(figures.talk, FIGURE_LINES);
+    if (line === speechLine) return;
+    speechLine = line;
+    if (line !== "") speech.textContent = line;
+    speech.classList.toggle("shown", line !== "");
   };
   const controlsLabel = document.querySelector<HTMLDivElement>("#controls")!;
   const showControls = (mode: ControlMode) => {
@@ -343,7 +359,8 @@ async function boot(): Promise<void> {
       simulate = view.black < 1;
       if (view.done) play();
     } else if (mode === "ending") {
-      modeTime += frameDt;
+      // A figure talking at the summit has the last word before the screen darkens.
+      if (figures.talk === null) modeTime += frameDt;
       const view = endingView(modeTime, ENDING.length);
       screens.setBlack(view.black);
       screens.reveal(view.lines);
@@ -366,6 +383,7 @@ async function boot(): Promise<void> {
       }
       levelWorld.advance(worldTime());
       physics.step();
+      figures = stepFigures(figures, LEVEL.figures, FIGURE_LINES, pogo.pos, SIM_DT);
       if (pogo.launches !== seenLaunches) {
         seenLaunches = pogo.launches;
         if (mode !== "ending") {
@@ -414,6 +432,7 @@ async function boot(): Promise<void> {
 
     showStats();
     showRideHint();
+    showSpeech();
     setStanding(pogo.ride.phase !== "riding");
     chargeFill.style.width = `${pogo.charge.charge * 100}%`;
     chargeBar.classList.toggle("armed", pogo.charge.armed);

@@ -85,5 +85,6 @@ export const playground: Level = {
   start: { x: 0, y: 0, z: 0 },
   pieces,
   restSpots: [{ id: "start", min: { x: -3, y: 0, z: -3 }, max: { x: 3, y: 3, z: 3 } }],
+  figures: [],
   zones: [],
 };

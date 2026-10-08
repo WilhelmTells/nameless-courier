@@ -41,6 +41,22 @@ export interface RestSpot {
   max: Vec3;
 }
 
+export type FigurePose = "stand" | "sit" | "hunch";
+
+/**
+ * One of the figures: a silent presence that speaks when the courier comes
+ * close. Look only: it has no collider.
+ */
+export interface Figure {
+  /** Key of its lines in story.ts. */
+  id: string;
+  /** Where it stands (or, sitting, the edge it sits on), m. */
+  pos: Vec3;
+  /** The way it looks, degrees about +Y: 0 looks along -Z, 90 along -X. */
+  facing: number;
+  pose: FigurePose;
+}
+
 /** One stretch of the climb, kept in its own file. */
 export interface Zone {
   id: string;
@@ -48,6 +64,7 @@ export interface Zone {
   start: Vec3;
   pieces: Piece[];
   restSpots: RestSpot[];
+  figures: Figure[];
 }
 
 /** What the game builds and runs: one world, made of zones or standing alone. */

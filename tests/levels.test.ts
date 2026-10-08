@@ -1,6 +1,8 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
 import { DEFAULT_LEVEL, LEVELS, levelFromSearch, teleportTargets } from "../src/levels/index.ts";
+import { tower } from "../src/levels/tower.ts";
+import { FIGURE_LINES } from "../src/story.ts";
 
 test("level comes from the URL, the structure by default", () => {
   assert.equal(DEFAULT_LEVEL.id, "tower");
@@ -75,4 +77,21 @@ test("teleport targets: each zone start, then each rest spot's surface centre", 
     z: (spot.min.z + spot.max.z) / 2,
   });
   assert.equal(teleportTargets(LEVELS.playground)[0].label, "Playground: start");
+});
+
+test("seven figures, each with its own lines, standing on a level surface", () => {
+  assert.equal(tower.figures.length, 7);
+  assert.equal(new Set(tower.figures.map((f) => f.id)).size, 7);
+  for (const f of tower.figures) {
+    assert.ok(Object.hasOwn(FIGURE_LINES, f.id), `${f.id} has lines`);
+    assert.ok(FIGURE_LINES[f.id].first.length > 0 && FIGURE_LINES[f.id].return.length > 0, `${f.id} has both sets`);
+    const floor = tower.pieces.some(
+      (p) =>
+        p.shape === "box" && p.motion.kind === "none" &&
+        Math.abs(p.position.y + p.size.y / 2 - f.pos.y) < 0.01 &&
+        Math.abs(f.pos.x - p.position.x) <= p.size.x / 2 &&
+        Math.abs(f.pos.z - p.position.z) <= p.size.z / 2,
+    );
+    assert.ok(floor, `${f.id} stands on a piece`);
+  }
 });

@@ -99,4 +99,5 @@ export const zone1: Zone = {
     { id: "yard-start", min: { x: -3, y: 0, z: -3 }, max: { x: 3, y: 3, z: 3 } },
     { id: "zone-top", min: { x: 16, y: ROOF_B + 4, z: -60 }, max: { x: 20, y: ROOF_B + 7, z: -56 } },
   ],
+  figures: [{ id: "door", pos: { x: 16.4, y: ROOF_B + 4, z: -59.6 }, facing: -90, pose: "stand" }],
 };

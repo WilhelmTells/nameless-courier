@@ -1,5 +1,7 @@
-// The only narration in the game: the opening before a new run and the
-// ending at the summit. One entry per line on screen.
+// All text in the game: the opening before a new run, the ending at the
+// summit, and the figures' lines. One entry per line on screen.
+
+import type { FigureLines } from "./core/figureCore.ts";
 
 export const OPENING: readonly string[] = [
   "I have a parcel.",
@@ -17,3 +19,26 @@ export const ENDING: readonly string[] = [
   "I'll set it down here, where someone would look.",
   "I'll wait a little while.",
 ];
+
+/**
+ * What each figure says: first-visit lines, and return lines for when the
+ * courier comes back after falling below it. Keyed by the figure ids in the
+ * level data.
+ */
+export const FIGURE_LINES: Readonly<Record<string, FigureLines>> = {
+  door: placeholder("the one by the door"),
+  builder: placeholder("the builder"),
+  listener: placeholder("the listener"),
+  forgotten: placeholder("the one who forgot"),
+  keeper: placeholder("the keeper"),
+  "let-go": placeholder("the one who let go"),
+  waiting: placeholder("the one who waits"),
+};
+
+/** Stand-in lines until the real ones are written. */
+function placeholder(name: string): FigureLines {
+  return {
+    first: [1, 2, 3].map((n) => `[${name}: first visit, line ${n}]`),
+    return: [1, 2].map((n) => `[${name}: return, line ${n}]`),
+  };
+}

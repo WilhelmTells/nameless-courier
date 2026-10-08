@@ -61,4 +61,5 @@ export const zone2: Zone = {
     { id: "deck-start", min: { x: 16, y: DECK, z: -66 }, max: { x: 20, y: DECK + 3, z: WALL } },
     { id: "zone-2-top", min: { x: 2, y: TOP, z: WALL - 3 }, max: { x: 8, y: TOP + 3, z: WALL } },
   ],
+  figures: [{ id: "builder", pos: { x: 7.6, y: TOP, z: WALL - 3 }, facing: 0, pose: "sit" }],
 };

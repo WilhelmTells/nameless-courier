@@ -79,4 +79,5 @@ export const zone3: Zone = {
   start: { x: 5, y: F1, z: -61.5 },
   pieces,
   restSpots: [{ id: "zone-3-top", min: { x: -12, y: ROOF, z: -58 }, max: { x: -6, y: ROOF + 3, z: -52 } }],
+  figures: [{ id: "listener", pos: { x: -13.5, y: ROOF, z: -58.4 }, facing: 0, pose: "stand" }],
 };

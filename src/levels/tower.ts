@@ -17,5 +17,6 @@ export const tower: Level = {
   start: zone1.start,
   pieces: zones.flatMap((z) => z.pieces),
   restSpots: zones.flatMap((z) => z.restSpots),
+  figures: zones.flatMap((z) => z.figures),
   zones,
 };
