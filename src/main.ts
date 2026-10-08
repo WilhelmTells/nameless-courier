@@ -20,6 +20,7 @@ import { DEFAULT_LEVEL, LEVEL_ALIASES, levelFromSearch, teleportTargets, type Te
 import { createFigure } from "./render/figureRig.ts";
 import { createPogoRig } from "./render/pogoRig.ts";
 import { RetroPass } from "./render/retroPass.ts";
+import { addBeacon, groundMaterial } from "./render/worldLook.ts";
 import { ENDING, FIGURE_LINES, OPENING } from "./story.ts";
 import { Screens } from "./ui/screens.ts";
 import { VERSION } from "./version.ts";
@@ -80,28 +81,33 @@ async function boot(): Promise<void> {
   const retro = new RetroPass(renderer);
 
   const scene = new THREE.Scene();
-  const fogColor = new THREE.Color(0x1a1b1d);
+  // Cold blue-grey fog and moonlight; warm light comes only from lamps and windows.
+  const fogColor = new THREE.Color(0x1c1f25);
   scene.background = fogColor;
-  scene.fog = new THREE.Fog(fogColor, 15, 45);
+  scene.fog = new THREE.Fog(fogColor, 14, 48);
 
   const orbit = new OrbitCamera(new THREE.PerspectiveCamera(60, 1, 0.1, 200), canvas, physics);
   const camera = orbit.camera;
 
-  scene.add(new THREE.HemisphereLight(0xd8d6d0, 0x3a3836, 1.2));
-  const sun = new THREE.DirectionalLight(0xffffff, 1.5);
-  sun.position.set(5, 10, 3);
-  scene.add(sun);
+  scene.add(new THREE.HemisphereLight(0xb4bccb, 0x2e2a25, 1.15));
+  const moon = new THREE.DirectionalLight(0xd0d6e4, 1.25);
+  moon.position.set(-6, 9, -5);
+  scene.add(moon);
 
   const floor = new THREE.Mesh(
     new THREE.PlaneGeometry(FLOOR_SIZE, FLOOR_SIZE),
-    new THREE.MeshLambertMaterial({ color: 0x77777a }),
+    LEVEL.zones.length > 0 ? groundMaterial() : new THREE.MeshLambertMaterial({ color: 0x77777a }),
   );
   floor.rotation.x = -Math.PI / 2;
   scene.add(floor);
 
-  const grid = new THREE.GridHelper(GRID_SIZE, GRID_SIZE, 0x505055, 0x5c5c60);
-  grid.position.y = 0.001;
-  scene.add(grid);
+  // Test levels keep a grid on the ground for judging distances.
+  if (LEVEL.zones.length === 0) {
+    const grid = new THREE.GridHelper(GRID_SIZE, GRID_SIZE, 0x505055, 0x5c5c60);
+    grid.position.y = 0.001;
+    scene.add(grid);
+  }
+  const updateBeacon = LEVEL.zones.length > 0 ? addBeacon(scene) : () => {};
 
   const levelWorld = buildLevel(LEVEL, scene, physics);
   // Build the query structures once, so the pogo, camera and marker can cast
@@ -432,6 +438,7 @@ async function boot(): Promise<void> {
     const a = loop.alpha;
     levelWorld.render(worldTime() - SIM_DT * (1 - a));
     for (const f of figureRigs) f.update(worldTime());
+    updateBeacon(time / 1000);
     tip.set(
       pogo.prevPos.x + (pogo.pos.x - pogo.prevPos.x) * a,
       pogo.prevPos.y + (pogo.pos.y - pogo.prevPos.y) * a,

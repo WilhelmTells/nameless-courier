@@ -6,6 +6,7 @@ import { poseAt, velocityAt, type Pose } from "../core/motionCore.ts";
 import type { Vec3 } from "../core/pogoCore.ts";
 import type { Level, Piece, Surface } from "../levels/types.ts";
 import type { LevelInfo } from "./pogo.ts";
+import { addSkyline, addWindows, projectUVs, surfaceTexture } from "../render/worldLook.ts";
 
 const PIECE_COLOR = 0x8a8a8d;
 /** Lighter edges keep platform borders readable. */
@@ -185,7 +186,10 @@ export function buildLevel(level: Level, scene: THREE.Scene, physics: RAPIER.Wor
     if (!look) {
       const { color, edge } = SURFACE_LOOK[surface];
       look = {
-        mesh: surface === "mud" ? new THREE.MeshPhongMaterial({ color, shininess: 80, specular: 0x6a6258 }) : new THREE.MeshLambertMaterial({ color }),
+        mesh:
+          surface === "mud"
+            ? new THREE.MeshPhongMaterial({ color, map: surfaceTexture(surface), shininess: 80, specular: 0x6a6258 })
+            : new THREE.MeshLambertMaterial({ color, map: surfaceTexture(surface) }),
         edge: new THREE.LineBasicMaterial({ color: edge }),
       };
       looks.set(surface, look);
@@ -198,7 +202,7 @@ export function buildLevel(level: Level, scene: THREE.Scene, physics: RAPIER.Wor
   for (const piece of level.pieces) {
     const look = lookFor(piece.surface);
     const geo = geometryFor(piece);
-    const mesh = new THREE.Mesh(geo, look.mesh);
+    const mesh = new THREE.Mesh(projectUVs(geo), look.mesh);
     mesh.position.set(piece.position.x, piece.position.y, piece.position.z);
     mesh.rotation.set(piece.rotation.x * DEG, piece.rotation.y * DEG, piece.rotation.z * DEG);
     mesh.add(new THREE.LineSegments(new THREE.EdgesGeometry(geo, 30), look.edge));
@@ -219,6 +223,10 @@ export function buildLevel(level: Level, scene: THREE.Scene, physics: RAPIER.Wor
     }
   }
   markRestSpots(level, scene);
+  if (level.zones.length > 0) {
+    addWindows(level, scene);
+    addSkyline(scene);
+  }
   built.place(0);
   built.render(0);
   return built;
