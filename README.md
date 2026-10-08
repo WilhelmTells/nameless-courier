@@ -42,6 +42,9 @@ running for nobody: platforms carry you along, and anything that swings or
 turns will knock you off. At the very top, a last crossing over the open
 drop: miss it and you fall all the way down.
 
+You are not quite alone. Here and there, tall dark figures stand on the
+ledges, and when you come close, they talk. Not to you, exactly.
+
 ## Development
 
 Requires Node 22.
