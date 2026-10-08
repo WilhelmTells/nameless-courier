@@ -1,5 +1,6 @@
 // Set dressing on the tall walls (user, concept art): rusty drain pipes,
-// broken pipes sticking out (a few with water running from them), ivy
+// broken pipes sticking out (a few with water running from them, many
+// dripping), ivy
 // hanging from the tops and sills, and cracks. Look only, no colliders.
 // Rules (§6): nothing reads as a ledge (pipes are round and short), ivy
 // hangs below landing edges and never covers their trim, and only a few
@@ -113,7 +114,12 @@ const isPlainBox = (p: Piece) =>
 const MIN_WALL = 6;
 /** Water only runs within this distance of a rest spot, m. */
 const WATER_NEAR_REST = 18;
-const MAX_STREAMS = 12;
+/** Streams per zone, so every zone has a little running water. */
+const STREAMS_PER_ZONE = 2;
+/** Falling drops, m/s². */
+const DRIP_GRAVITY = 9.8;
+/** A splash shows this long where a drop lands, s. */
+const SPLASH_TIME = 0.16;
 
 /** Adds the dressing to `scene`; returns the update that runs the water. */
 export function addDressing(level: Level, scene: THREE.Scene): (time: number) => void {
@@ -150,9 +156,15 @@ export function addDressing(level: Level, scene: THREE.Scene): (time: number) =>
       return Math.hypot(p.x - cx, p.z - cz) < WATER_NEAR_REST && Math.abs(p.y - r.min.y) < 12;
     });
 
-  /** Water falling from `mouth` to the next surface below, splashing there; only near rest spots, and only a few. */
+  const zoneOf = new Map<string, number>();
+  level.zones.forEach((z, i) => z.pieces.forEach((p) => zoneOf.set(p.id, i)));
+  const streamsIn: number[] = [];
+  let zone = 0;
+
+  /** Water falling from `mouth` to the next surface below, splashing there; only near rest spots, two per zone. */
   const pour = (mouth: THREE.Vector3): boolean => {
-    if (streams.length / 2 >= MAX_STREAMS || !nearRest(mouth)) return false;
+    if ((streamsIn[zone] ?? 0) >= STREAMS_PER_ZONE || !nearRest(mouth)) return false;
+    streamsIn[zone] = (streamsIn[zone] ?? 0) + 1;
     const floor = floorBelow(mouth);
     const drop = mouth.y - floor;
     for (const spin of [0, Math.PI / 2]) {
@@ -166,6 +178,17 @@ export function addDressing(level: Level, scene: THREE.Scene): (time: number) =>
     return true;
   };
 
+  // Drips: single drops falling from pipe ends, anywhere, each on its own beat.
+  const drips: { x: number; y: number; z: number; floor: number; fall: number; period: number; phase: number }[] = [];
+  let dripRnd = random(1);
+  const drip = (mouth: THREE.Vector3, chance: number) => {
+    if (dripRnd() >= chance) return;
+    const floor = floorBelow(mouth);
+    const fall = Math.sqrt((2 * (mouth.y - floor)) / DRIP_GRAVITY);
+    const period = Math.max(fall + SPLASH_TIME + 0.2, 0.9 + dripRnd() * 2.2);
+    drips.push({ x: mouth.x, y: mouth.y, z: mouth.z, floor, fall, period, phase: dripRnd() * period });
+  };
+
   for (const piece of boxes) {
     if (piece.size.y < MIN_WALL) continue;
     const rnd = random(hash(piece.id) + 7);
@@ -174,6 +197,8 @@ export function addDressing(level: Level, scene: THREE.Scene): (time: number) =>
     const y0 = piece.position.y - piece.size.y / 2, y1 = piece.position.y + piece.size.y / 2;
     const high = y1 > 100;
     const more = random(hash(piece.id) + 13);
+    dripRnd = random(hash(piece.id) + 29);
+    zone = zoneOf.get(piece.id) ?? 0;
     const walls = [
       { yaw: Math.PI / 2, x: x1, z: null, from: z0, to: z1 },
       { yaw: -Math.PI / 2, x: x0, z: null, from: z0, to: z1 },
@@ -205,6 +230,7 @@ export function addDressing(level: Level, scene: THREE.Scene): (time: number) =>
           const end = new THREE.CylinderGeometry(0.07, 0.07, 0.35, 6).toNonIndexed().rotateX(0.7);
           put(pipes, end, at(a, bottom - 0.12, 0.24));
           put(stains, new THREE.PlaneGeometry(0.5, Math.min(6, bottom - y0)).toNonIndexed(), at(a, bottom - Math.min(6, bottom - y0) / 2, 0.02));
+          drip(at(a, bottom - 0.25, 0.34), 0.7);
         }
       }
 
@@ -217,6 +243,8 @@ export function addDressing(level: Level, scene: THREE.Scene): (time: number) =>
         put(pipes, new THREE.CylinderGeometry(0.16, 0.16, 0.04, 7).toNonIndexed(), at(a, y, 0.02), turn);
         if (pour(at(a, y - 0.03, 0.38))) {
           put(stains, new THREE.PlaneGeometry(0.6, Math.min(5, y - y0)).toNonIndexed(), at(a, y - Math.min(5, y - y0) / 2, 0.02));
+        } else {
+          drip(at(a, y - 0.05, 0.36), 0.6);
         }
       }
 
@@ -265,11 +293,13 @@ export function addDressing(level: Level, scene: THREE.Scene): (time: number) =>
         if (more() < 0.55) {
           // Elbow down, open at the bottom.
           put(pipes, new THREE.CylinderGeometry(r, r, 0.4, 6).toNonIndexed(), at(a, y - 0.2 + r, len - r));
-          if (more() < 0.4) pour(at(a, y - 0.4 + r, len - r));
+          const mouth = at(a, y - 0.4 + r, len - r);
+          if (!(more() < 0.4 && pour(mouth))) drip(mouth, 0.5);
         } else {
           // Snapped off: a short piece hanging at an angle from the end.
           put(pipes, new THREE.CylinderGeometry(r, r, 0.25, 6).toNonIndexed().rotateX(Math.PI / 2 + 0.6), at(a, y - 0.06, len + 0.08));
-          if (more() < 0.3) pour(at(a, y - 0.12, len + 0.18));
+          const mouth = at(a, y - 0.12, len + 0.18);
+          if (!(more() < 0.3 && pour(mouth))) drip(mouth, 0.5);
         }
       }
 
@@ -317,8 +347,31 @@ export function addDressing(level: Level, scene: THREE.Scene): (time: number) =>
   const splash = new THREE.Points(splashGeo, splashMat);
   scene.add(splash);
 
+  // Each drop is a short falling streak; when it lands, a splash shows briefly.
+  const HIDDEN = -1000;
+  const dropPos = new Float32Array(drips.length * 6);
+  const dropGeo = new THREE.BufferGeometry().setAttribute("position", new THREE.BufferAttribute(dropPos, 3));
+  const drops = new THREE.LineSegments(dropGeo, new THREE.LineBasicMaterial({ color: 0xbfccd6, transparent: true, opacity: 0.8 }));
+  drops.frustumCulled = false;
+  const hitPos = new Float32Array(drips.length * 3);
+  const hitGeo = new THREE.BufferGeometry().setAttribute("position", new THREE.BufferAttribute(hitPos, 3));
+  const hits = new THREE.Points(hitGeo, new THREE.PointsMaterial({ color: 0xc8d4dc, size: 0.12, transparent: true, opacity: 0.75, depthWrite: false }));
+  hits.frustumCulled = false;
+  if (drips.length > 0) scene.add(drops, hits);
+
   return (time) => {
     waterMap.offset.y = time * 2.2;
     splashMat.opacity = 0.45 + 0.3 * Math.abs(Math.sin(time * 9));
+    drips.forEach((d, i) => {
+      const t = (time + d.phase) % d.period;
+      const falling = t < d.fall;
+      const y = d.y - 0.5 * DRIP_GRAVITY * t * t;
+      const tail = Math.min(0.14, DRIP_GRAVITY * t * 0.025);
+      dropPos.set(falling ? [d.x, y, d.z, d.x, y + tail + 0.02, d.z] : [d.x, HIDDEN, d.z, d.x, HIDDEN, d.z], i * 6);
+      const splashing = !falling && t < d.fall + SPLASH_TIME;
+      hitPos.set([d.x, splashing ? d.floor + 0.03 : HIDDEN, d.z], i * 3);
+    });
+    dropGeo.attributes.position.needsUpdate = true;
+    hitGeo.attributes.position.needsUpdate = true;
   };
 }
