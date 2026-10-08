@@ -4,9 +4,7 @@ A pogo stick climbing game in the browser.
 
 **[▶ Play](https://wilhelmtells.github.io/nameless-courier/)**
 
-![The court on top of the structure, in the rain](screenshots/court.jpg)
-
-![The last stop before the summit](screenshots/crown.jpg)
+![The courier in the yard at the foot of the structure, in the rain](screenshots/start.jpg)
 
 ---
 
