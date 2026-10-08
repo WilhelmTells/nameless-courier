@@ -26,6 +26,7 @@ import { addCrows } from "./render/crows.ts";
 import { addAtmosphere, capeWind } from "./render/atmosphere.ts";
 import { addNightLife } from "./render/nightLife.ts";
 import { addInteriors } from "./render/interiors.ts";
+import { addAmbience } from "./audio/ambience.ts";
 import { Sound } from "./audio/engine.ts";
 import { ENDING, FIGURE_LINES, OPENING } from "./story.ts";
 import type { Volumes } from "./core/audioCore.ts";
@@ -132,6 +133,8 @@ async function boot(): Promise<void> {
   const capeGust = new THREE.Vector3();
   // After every lantern is placed (figures, lamps), so the moths find them all.
   const updateNightLife = LEVEL.zones.length > 0 ? addNightLife(scene, sky, fog.color) : () => {};
+
+  const updateAmbience = addAmbience(sound, LEVEL.rooms ?? []);
 
   const levelWorld = buildLevel(LEVEL, scene, physics);
   // Build the query structures once, so the pogo, camera and marker can cast
@@ -578,6 +581,7 @@ async function boot(): Promise<void> {
     // The pogo and the figures are heard only in play; menus keep the ambience.
     sound.setMenu(mode === "title" || mode === "paused");
     sound.listen(camera);
+    updateAmbience(tip, time / 1000);
 
     retro.render(scene, camera);
   });
