@@ -16,3 +16,7 @@ Made with [TypeScript](https://www.typescriptlang.org/),
 code; there are no external assets.
 
 `npm install`, then `npm run dev` (Node 22).
+
+Add `?debug` to the URL for the debug mode: a tuning panel for the pogo and
+the camera, teleports to every zone and rest spot, and a free-flying camera
+([try it](https://wilhelmtells.github.io/nameless-courier/?debug)).
