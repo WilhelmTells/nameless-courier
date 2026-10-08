@@ -8,6 +8,9 @@ export const LAMP_COLOR = 0xffc27a;
 
 let haloTexture: THREE.Texture | null = null;
 
+/** Every burning lantern made so far (moths gather round them). */
+export const litLanterns: THREE.Object3D[] = [];
+
 /** A soft round glow, drawn once on a canvas. */
 function halo(): THREE.Texture {
   if (haloTexture) return haloTexture;
@@ -59,12 +62,14 @@ export function lantern(reach = 7, intensity = 3): THREE.Group {
   const light = new THREE.PointLight(LAMP_COLOR, intensity, reach, 1.6);
   light.position.y = 0.2;
   g.add(light);
+  litLanterns.push(g);
   return g;
 }
 
 /** A lantern that has gone out: the cage and a dark core, no light. */
 export function deadLantern(): THREE.Group {
   const g = lantern();
+  litLanterns.pop();
   for (const child of [...g.children]) {
     if (child instanceof THREE.PointLight || child instanceof THREE.Sprite) g.remove(child);
     if (child instanceof THREE.Mesh && child.material === flame) child.material = dark;

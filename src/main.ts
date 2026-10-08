@@ -24,6 +24,7 @@ import { addArchitecture, addBeacon, addSkyline } from "./render/worldLook.ts";
 import { addDressing } from "./render/dressing.ts";
 import { addCrows } from "./render/crows.ts";
 import { addAtmosphere, capeWind } from "./render/atmosphere.ts";
+import { addNightLife } from "./render/nightLife.ts";
 import { ENDING, FIGURE_LINES, OPENING } from "./story.ts";
 import { Screens } from "./ui/screens.ts";
 import { VERSION } from "./version.ts";
@@ -90,13 +91,16 @@ async function boot(): Promise<void> {
   const scene = new THREE.Scene();
   // Cold blue-grey fog and moonlight; warm light comes only from lamps and windows.
   const fogColor = new THREE.Color(0x1c1f25);
-  scene.background = fogColor;
-  scene.fog = new THREE.Fog(fogColor, 14, 48);
+  const fog = new THREE.Fog(fogColor, 14, 48);
+  scene.fog = fog;
+  // The background is the fog's own colour, so a flash of lightning lights both.
+  scene.background = fog.color;
 
   const orbit = new OrbitCamera(new THREE.PerspectiveCamera(60, 1, 0.1, 200), canvas, physics);
   const camera = orbit.camera;
 
-  scene.add(new THREE.HemisphereLight(0xb4bccb, 0x2e2a25, 1.15));
+  const sky = new THREE.HemisphereLight(0xb4bccb, 0x2e2a25, 1.15);
+  scene.add(sky);
   const moon = new THREE.DirectionalLight(0xd0d6e4, 1.25);
   moon.position.set(-6, 9, -5);
   scene.add(moon);
@@ -117,6 +121,8 @@ async function boot(): Promise<void> {
   const crows = LEVEL.zones.length > 0 ? addCrows(LEVEL, scene) : null;
   const updateAtmosphere = LEVEL.zones.length > 0 ? addAtmosphere(scene) : () => {};
   const capeGust = new THREE.Vector3();
+  // After every lantern is placed (figures, lamps), so the moths find them all.
+  const updateNightLife = LEVEL.zones.length > 0 ? addNightLife(scene, sky, fog.color) : () => {};
 
   const levelWorld = buildLevel(LEVEL, scene, physics);
   // Build the query structures once, so the pogo, camera and marker can cast
@@ -452,6 +458,7 @@ async function boot(): Promise<void> {
     updateWindows(tip, time / 1000);
     crows?.update(tip, time / 1000, Math.min(0.1, Math.max(0, frameDt)));
     updateAtmosphere(tip, time / 1000, Math.min(0.1, Math.max(0, frameDt)));
+    updateNightLife(time / 1000);
     tip.set(
       pogo.prevPos.x + (pogo.pos.x - pogo.prevPos.x) * a,
       pogo.prevPos.y + (pogo.pos.y - pogo.prevPos.y) * a,
