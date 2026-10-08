@@ -68,6 +68,8 @@ export interface LevelInfo {
   surfaceOf(collider: RAPIER.Collider): Surface;
   /** Velocity of the piece at a world point, now; zero for still pieces, m/s. */
   velocityAt(collider: RAPIER.Collider, point: Vec3): Vec3;
+  /** The look of the piece a collider belongs to (stone, iron, wood…), for its sound; undefined if plain. */
+  materialOf?(collider: RAPIER.Collider): string | undefined;
   /** The pieces that move. */
   readonly movers: readonly { collider: RAPIER.Collider }[];
 }
@@ -97,6 +99,22 @@ interface CastHit {
 
 export type ContactKind = "floor" | "wall" | "bonk";
 
+/** A contact that makes a sound (§7). The game reads them after each step and clears the list. */
+export interface PogoSound {
+  /** "land": the courier came down to get off. */
+  kind: "floor" | "wall" | "bonk" | "land";
+  surface: Surface;
+  /** The look of the piece hit, if it has one. */
+  material?: string;
+  /** Speed into the surface, m/s. */
+  speed: number;
+  /** Charge released by this bounce, 0..1; 0 for a plain bounce. */
+  charge: number;
+}
+
+/** A knock slower than this into a surface makes no sound, m/s. */
+const SILENT_KNOCK = 1.5;
+
 export interface Contact {
   kind: ContactKind;
   /** Angle between the stick and the surface normal, degrees. */
@@ -106,6 +124,7 @@ export interface Contact {
 const add = (a: Vec3, b: Vec3): Vec3 => ({ x: a.x + b.x, y: a.y + b.y, z: a.z + b.z });
 const sub = (a: Vec3, b: Vec3): Vec3 => ({ x: a.x - b.x, y: a.y - b.y, z: a.z - b.z });
 const scale = (a: Vec3, k: number): Vec3 => ({ x: a.x * k, y: a.y * k, z: a.z * k });
+const dot = (a: Vec3, b: Vec3): number => a.x * b.x + a.y * b.y + a.z * b.z;
 const lerp = (a: Vec3, b: Vec3, t: number): Vec3 => add(a, scale(sub(b, a), t));
 
 /** `v` without its component into the surface with normal `n`. */
@@ -143,6 +162,8 @@ export class Pogo {
   ride: RideState = { ...RIDING };
   /** Surface of the last floor bounce: decides how fast the charge fills. */
   surface: Surface = "normal";
+  /** Contacts since the game last read them, for the sound. */
+  sounds: PogoSound[] = [];
 
   /** State before the last step, for render interpolation. */
   prevPos: Vec3;
@@ -194,6 +215,7 @@ export class Pogo {
     this.ride = { ...RIDING };
     this.surface = "normal";
     this.stalled = 0;
+    this.sounds = [];
   }
 
   /** True when the pogo is inside a rest spot, where the courier can get off. */
@@ -359,16 +381,16 @@ export class Pogo {
       const approaching = rel.x * n.x + rel.y * n.y + rel.z * n.z < 0;
       // Touching a wall with a direction pressed away from it kicks off it, whatever part touches.
       if (wallKickAllowed(this.kickDir, n, cfg)) {
-        this.launch(stick, n, "wall", "normal", carrier);
+        this.launch(stick, n, "wall", "normal", carrier, hit.collider);
         return;
       }
       if (hit.part === "tip" && approaching && tipContactValid(stick, n, cfg)) {
         const relSpeed = Math.hypot(this.vel.x - carrier.x, this.vel.z - carrier.z);
-        if (canDismount(this.ride, this.inRestSpot(), relSpeed, cfg)) this.getOff(stick, n);
-        else this.launch(stick, n, "floor", this.level.surfaceOf(hit.collider), carrier);
+        if (canDismount(this.ride, this.inRestSpot(), relSpeed, cfg)) this.getOff(stick, n, hit.collider);
+        else this.launch(stick, n, "floor", this.level.surfaceOf(hit.collider), carrier, hit.collider);
         return;
       }
-      this.bonk(stick, n, carrier);
+      this.bonk(stick, n, carrier, hit.collider);
       // A moving surface does not stay put to slide along: stop here for this step.
       if (moving) return;
       planes.push(n);
@@ -376,9 +398,12 @@ export class Pogo {
   }
 
   /** Bonk off a surface moving at `carrier`: the bounce is worked out relative to it. */
-  private bonk(stick: Vec3, n: Vec3, carrier: Vec3): void {
-    const bonk = bonkVelocity(sub(this.vel, carrier), n, cfg);
+  private bonk(stick: Vec3, n: Vec3, carrier: Vec3, collider: RAPIER.Collider): void {
+    const incoming = sub(this.vel, carrier);
+    const bonk = bonkVelocity(incoming, n, cfg);
     this.vel = add(bonk.vel, carrier);
+    const speed = -dot(incoming, n);
+    if (bonk.hard || speed > SILENT_KNOCK) this.hear("bonk", "normal", speed, 0, collider);
     if (bonk.hard) {
       this.bonkLock = cfg.bonkLockTime;
       this.steering = false;
@@ -418,9 +443,9 @@ export class Pogo {
     const stick = stickAxis(this.lean);
     const carrier = this.level.velocityAt(hit.collider, hit.point);
     if (hit.part === "tip" && tipContactValid(stick, hit.normal, cfg)) {
-      this.launch(stick, hit.normal, "floor", this.level.surfaceOf(hit.collider), carrier);
+      this.launch(stick, hit.normal, "floor", this.level.surfaceOf(hit.collider), carrier, hit.collider);
     } else {
-      this.bonk(stick, hit.normal, carrier);
+      this.bonk(stick, hit.normal, carrier, hit.collider);
     }
   }
 
@@ -472,8 +497,16 @@ export class Pogo {
     this.pos = add(this.pos, { x: 0, y: 0.05, z: 0 });
   }
 
+  private hear(kind: PogoSound["kind"], surface: Surface, speed: number, charge: number, collider?: RAPIER.Collider): void {
+    // An unread list never grows without end.
+    if (this.sounds.length > 8) this.sounds.shift();
+    const material = collider ? this.level.materialOf?.(collider) : undefined;
+    this.sounds.push({ kind, surface, material, speed: Math.max(0, speed), charge });
+  }
+
   /** Lands without launching and starts getting off. Counts as a launch from here for the run stats. */
-  private getOff(stick: Vec3, normal: Vec3): void {
+  private getOff(stick: Vec3, normal: Vec3, collider: RAPIER.Collider): void {
+    this.hear("land", this.level.surfaceOf(collider), -dot(this.vel, normal), 0, collider);
     this.vel = { x: 0, y: 0, z: 0 };
     this.charge = { ...NO_CHARGE };
     this.ride = { phase: "gettingOff", t: 0, requested: false };
@@ -490,8 +523,9 @@ export class Pogo {
    * velocity of the surface: the launch is worked out relative to it and then
    * carried along (riding a moving platform, a rising piston throws higher).
    */
-  private launch(stick: Vec3, normal: Vec3, kind: "floor" | "wall", surface: Surface = "normal", carrier: Vec3 = ZERO): void {
+  private launch(stick: Vec3, normal: Vec3, kind: "floor" | "wall", surface: Surface = "normal", carrier: Vec3 = ZERO, collider?: RAPIER.Collider): void {
     const incoming = sub(this.vel, carrier);
+    this.hear(kind, surface, -dot(incoming, normal), this.charge.armed ? this.charge.charge : 0, collider);
     // Floor bounces carry part of the fall; wall kicks drop the falling speed.
     const carried = kind === "floor" ? carriedApex(this.peakY - this.pos.y, cfg) : 0;
     const bounce = resolveBounce(this.charge, cfg, carried);

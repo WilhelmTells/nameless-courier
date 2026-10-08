@@ -130,6 +130,10 @@ export class LevelWorld implements LevelInfo {
     return this.pieceOf(collider)?.surface ?? "normal";
   }
 
+  materialOf(collider: RAPIER.Collider): string | undefined {
+    return this.pieceOf(collider)?.material;
+  }
+
   /** Velocity of the piece at `point`, at the current time; zero for still pieces, m/s. */
   velocityAt(collider: RAPIER.Collider, point: Vec3): Vec3 {
     const piece = this.pieces.get(collider.handle);

@@ -28,6 +28,7 @@ import { addNightLife } from "./render/nightLife.ts";
 import { addInteriors } from "./render/interiors.ts";
 import { addAmbience } from "./audio/ambience.ts";
 import { Sound } from "./audio/engine.ts";
+import { addPogoSounds } from "./audio/pogoSounds.ts";
 import { ENDING, FIGURE_LINES, OPENING } from "./story.ts";
 import type { Volumes } from "./core/audioCore.ts";
 import { Screens } from "./ui/screens.ts";
@@ -135,6 +136,7 @@ async function boot(): Promise<void> {
   const updateNightLife = LEVEL.zones.length > 0 ? addNightLife(scene, sky, fog.color) : () => {};
 
   const updateAmbience = addAmbience(sound, LEVEL.rooms ?? []);
+  const updatePogoSounds = addPogoSounds(sound);
 
   const levelWorld = buildLevel(LEVEL, scene, physics);
   // Build the query structures once, so the pogo, camera and marker can cast
@@ -582,6 +584,7 @@ async function boot(): Promise<void> {
     sound.setMenu(mode === "title" || mode === "paused");
     sound.listen(camera);
     updateAmbience(tip, time / 1000);
+    updatePogoSounds({ pos: pogo.pos, vel: pogo.vel, charge: pogo.charge, riding: pogo.ride.phase === "riding", sounds: pogo.sounds });
 
     retro.render(scene, camera);
   });
