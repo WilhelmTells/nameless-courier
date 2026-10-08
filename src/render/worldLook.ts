@@ -52,20 +52,26 @@ function noise(g: CanvasRenderingContext2D, n: number, rnd: () => number, base: 
   g.putImageData(img, 0, 0);
 }
 
+/** Concrete: speckle, a few faint stains, panel joints. Variants differ in stains and joints. */
+function concrete(seed: number): THREE.Texture {
+  return canvasTexture((g, n, rnd) => {
+    noise(g, n, rnd, 222, 22);
+    for (let i = 0; i < 5; i++) {
+      g.fillStyle = `rgba(40,38,36,${0.03 + rnd() * 0.05})`;
+      g.fillRect(rnd() * n, rnd() * n, 4 + rnd() * 14, 3 + rnd() * 14);
+    }
+    g.fillStyle = "rgba(30,30,30,0.3)";
+    g.fillRect(0, 0, n, 1);
+    if (seed % 2 === 0) g.fillRect(0, n / 2, n, 1);
+    g.fillRect(0, 0, 1, n);
+  }, seed);
+}
+
+/** Concrete variants, picked per piece. */
+export const CONCRETE_VARIANTS = 3;
+
 const TEXTURES: Record<Surface, () => THREE.Texture> = {
-  // Concrete: speckle, a few darker stains and runs, panel joints.
-  normal: () =>
-    canvasTexture((g, n, rnd) => {
-      noise(g, n, rnd, 222, 26);
-      for (let i = 0; i < 6; i++) {
-        g.fillStyle = `rgba(40,38,36,${0.06 + rnd() * 0.08})`;
-        const x = rnd() * n, w = 3 + rnd() * 10;
-        g.fillRect(x, rnd() * n * 0.5, w, 8 + rnd() * n * 0.6);
-      }
-      g.fillStyle = "rgba(30,30,30,0.35)";
-      g.fillRect(0, 0, n, 1);
-      g.fillRect(0, 0, 1, n);
-    }, 1),
+  normal: () => concrete(1),
   // Tarp: taut cloth with stitched bands.
   trampoline: () =>
     canvasTexture((g, n, rnd) => {
@@ -84,15 +90,84 @@ const TEXTURES: Record<Surface, () => THREE.Texture> = {
     }, 3),
 };
 
-const textureCache = new Map<Surface, THREE.Texture>();
+const textureCache = new Map<string, THREE.Texture>();
 
-export function surfaceTexture(surface: Surface): THREE.Texture {
-  let t = textureCache.get(surface);
+/** The texture for a surface; concrete comes in `CONCRETE_VARIANTS` variants. */
+export function surfaceTexture(surface: Surface, variant = 0): THREE.Texture {
+  const id = `${surface}:${surface === "normal" ? variant : 0}`;
+  let t = textureCache.get(id);
   if (!t) {
-    t = TEXTURES[surface]();
-    textureCache.set(surface, t);
+    t = surface === "normal" ? concrete(1 + variant * 3) : TEXTURES[surface]();
+    textureCache.set(id, t);
   }
   return t;
+}
+
+/** A piece's concrete variant and texture offset, fixed by its id. */
+export function pieceLook(id: string): { variant: number; offset: [number, number] } {
+  const rnd = random(hash(id));
+  return { variant: Math.floor(rnd() * CONCRETE_VARIANTS), offset: [rnd(), rnd()] };
+}
+
+const WEATHER_VERTEX = /* glsl */ `
+  vWeatherPos = (modelMatrix * vec4(transformed, 1.0)).xyz;
+  vWeatherNormal = normalize(mat3(modelMatrix) * objectNormal);
+`;
+
+const WEATHER_FRAGMENT = /* glsl */ `
+  {
+    vec3 wp = vWeatherPos;
+    vec3 wn = normalize(vWeatherNormal);
+    float wall = 1.0 - smoothstep(0.4, 0.7, abs(wn.y));
+    // Large blotches, so big walls never look like the same tile.
+    float blotch = weatherNoise(wp * 0.07) * 0.6 + weatherNoise(wp * 0.21) * 0.4;
+    float shade = mix(0.74, 1.08, blotch);
+    // Water streaks running down the walls.
+    float across = dot(wp.xz, vec2(1.0)) * 1.1;
+    float streak = weatherNoise(vec3(across, wp.y * 0.045, 7.0));
+    shade *= 1.0 - wall * 0.32 * smoothstep(0.52, 0.85, streak);
+    // Grime towards the ground.
+    shade *= mix(0.7, 1.0, smoothstep(0.0, 6.0, wp.y));
+    // Tops a little lighter than walls.
+    shade *= mix(1.06, 0.94, wall);
+    diffuseColor.rgb *= shade;
+    // Damp green-grey moss on low, shaded patches of the walls.
+    float moss = wall * smoothstep(0.62, 0.8, weatherNoise(wp * 0.33 + 3.1)) * (1.0 - smoothstep(0.55, 0.9, blotch));
+    diffuseColor.rgb = mix(diffuseColor.rgb, vec3(0.2, 0.25, 0.17), moss * 0.55);
+  }
+`;
+
+const WEATHER_NOISE = /* glsl */ `
+  varying vec3 vWeatherPos;
+  varying vec3 vWeatherNormal;
+  float weatherHash(vec3 p) {
+    p = fract(p * 0.3183099 + 0.1);
+    p *= 17.0;
+    return fract(p.x * p.y * p.z * (p.x + p.y + p.z));
+  }
+  float weatherNoise(vec3 x) {
+    vec3 i = floor(x);
+    vec3 f = fract(x);
+    f = f * f * (3.0 - 2.0 * f);
+    return mix(
+      mix(mix(weatherHash(i), weatherHash(i + vec3(1, 0, 0)), f.x), mix(weatherHash(i + vec3(0, 1, 0)), weatherHash(i + vec3(1, 1, 0)), f.x), f.y),
+      mix(mix(weatherHash(i + vec3(0, 0, 1)), weatherHash(i + vec3(1, 0, 1)), f.x), mix(weatherHash(i + vec3(0, 1, 1)), weatherHash(i + vec3(1, 1, 1)), f.x), f.y),
+      f.z
+    );
+  }
+`;
+
+/** Weathers a material in its shader: blotches, water streaks, grime near the ground, moss. */
+export function weather<T extends THREE.Material>(material: T): T {
+  material.onBeforeCompile = (shader) => {
+    shader.vertexShader = shader.vertexShader
+      .replace("#include <common>", "#include <common>\nvarying vec3 vWeatherPos;\nvarying vec3 vWeatherNormal;")
+      .replace("#include <begin_vertex>", "#include <begin_vertex>\n" + WEATHER_VERTEX);
+    shader.fragmentShader = shader.fragmentShader
+      .replace("#include <common>", "#include <common>\n" + WEATHER_NOISE)
+      .replace("#include <map_fragment>", "#include <map_fragment>\n" + WEATHER_FRAGMENT);
+  };
+  return material;
 }
 
 /**
@@ -100,7 +175,7 @@ export function surfaceTexture(surface: Surface): THREE.Texture {
  * two coordinates across its main facing axis, in tiles of TILE_METRES, so
  * textures keep their size on pieces of any size. Returns a non-indexed copy.
  */
-export function projectUVs(geo: THREE.BufferGeometry): THREE.BufferGeometry {
+export function projectUVs(geo: THREE.BufferGeometry, offset: [number, number] = [0, 0]): THREE.BufferGeometry {
   const g = geo.index ? geo.toNonIndexed() : geo;
   const pos = g.attributes.position;
   const uv = new Float32Array(pos.count * 2);
@@ -113,8 +188,8 @@ export function projectUVs(geo: THREE.BufferGeometry): THREE.BufferGeometry {
     for (let k = 0; k < 3; k++) {
       const p = k === 0 ? a : k === 1 ? b : c;
       const [u, v] = n.x >= n.y && n.x >= n.z ? [p.z, p.y] : n.y >= n.z ? [p.x, p.z] : [p.x, p.y];
-      uv[(i + k) * 2] = u / TILE_METRES;
-      uv[(i + k) * 2 + 1] = v / TILE_METRES;
+      uv[(i + k) * 2] = u / TILE_METRES + offset[0];
+      uv[(i + k) * 2 + 1] = v / TILE_METRES + offset[1];
     }
   }
   g.setAttribute("uv", new THREE.BufferAttribute(uv, 2));
@@ -276,4 +351,67 @@ export function groundMaterial(): THREE.Material {
   map.repeat.set(250, 250);
   map.needsUpdate = true;
   return new THREE.MeshLambertMaterial({ color: 0x5a5c60, map });
+}
+
+/** Faces pointing up at least this much (cosine) count as landable for the trim. */
+const TRIM_UP = 0.7;
+/** Width of the trim on the surface and down the side, m. */
+const TRIM_TOP = 0.07;
+const TRIM_SIDE = 0.05;
+/** Lift off the faces, so the trim never flickers against them, m. */
+const TRIM_LIFT = 0.006;
+
+/**
+ * A slim band wrapping the outer edges of every upward face of `geo`
+ * (non-indexed, in the piece's own space): along the top and a little way
+ * down the side. `turn` is the piece's rotation, to tell which faces point up;
+ * `continues` says whether a point just past an edge (piece space) lies on
+ * another surface at the same height, where no trim is drawn.
+ */
+export function trimGeometry(
+  geo: THREE.BufferGeometry,
+  turn: THREE.Quaternion,
+  continues: (point: THREE.Vector3) => boolean = () => false,
+): THREE.BufferGeometry | null {
+  const pos = geo.attributes.position;
+  const worldUp = new THREE.Vector3(0, 1, 0).applyQuaternion(turn.clone().invert());
+  const key = (v: THREE.Vector3) => `${v.x.toFixed(3)},${v.y.toFixed(3)},${v.z.toFixed(3)}`;
+  const edges = new Map<string, { a: THREE.Vector3; b: THREE.Vector3; n: THREE.Vector3; c: THREE.Vector3; count: number }>();
+  const v = [new THREE.Vector3(), new THREE.Vector3(), new THREE.Vector3()];
+  for (let i = 0; i < pos.count; i += 3) {
+    for (let k = 0; k < 3; k++) v[k].fromBufferAttribute(pos, i + k);
+    const n = new THREE.Vector3().subVectors(v[1], v[0]).cross(new THREE.Vector3().subVectors(v[2], v[0])).normalize();
+    if (n.dot(worldUp) < TRIM_UP) continue;
+    const c = new THREE.Vector3().add(v[0]).add(v[1]).add(v[2]).divideScalar(3);
+    for (let k = 0; k < 3; k++) {
+      const a = v[k], b = v[(k + 1) % 3];
+      const ka = key(a), kb = key(b);
+      const id = ka < kb ? `${ka}|${kb}` : `${kb}|${ka}`;
+      const e = edges.get(id);
+      if (e) e.count++;
+      else edges.set(id, { a: a.clone(), b: b.clone(), n: n.clone(), c, count: 1 });
+    }
+  }
+  const out: number[] = [];
+  const quad = (p: THREE.Vector3[]) => out.push(...[p[0], p[1], p[2], p[0], p[2], p[3]].flatMap((q) => [q.x, q.y, q.z]));
+  for (const e of edges.values()) {
+    if (e.count !== 1) continue;
+    const along = new THREE.Vector3().subVectors(e.b, e.a);
+    const inward = new THREE.Vector3().crossVectors(e.n, along).normalize();
+    if (inward.dot(new THREE.Vector3().subVectors(e.c, e.a)) < 0) inward.negate();
+    // No trim where the surface carries on at the same height (another piece).
+    const beyond = e.a.clone().add(e.b).multiplyScalar(0.5).addScaledVector(inward, -0.1);
+    if (continues(beyond)) continue;
+    const lift = e.n.clone().multiplyScalar(TRIM_LIFT);
+    const out1 = inward.clone().multiplyScalar(-TRIM_LIFT);
+    const a = e.a.clone().add(lift).add(out1), b = e.b.clone().add(lift).add(out1);
+    const ai = a.clone().addScaledVector(inward, TRIM_TOP), bi = b.clone().addScaledVector(inward, TRIM_TOP);
+    const ad = a.clone().addScaledVector(e.n, -TRIM_SIDE), bd = b.clone().addScaledVector(e.n, -TRIM_SIDE);
+    quad([a, ai, bi, b]);
+    quad([a, b, bd, ad]);
+  }
+  if (out.length === 0) return null;
+  const g = new THREE.BufferGeometry();
+  g.setAttribute("position", new THREE.Float32BufferAttribute(out, 3));
+  return g;
 }

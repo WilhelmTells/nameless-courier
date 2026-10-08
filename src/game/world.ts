@@ -6,11 +6,11 @@ import { poseAt, velocityAt, type Pose } from "../core/motionCore.ts";
 import type { Vec3 } from "../core/pogoCore.ts";
 import type { Level, Piece, Surface } from "../levels/types.ts";
 import type { LevelInfo } from "./pogo.ts";
-import { addSkyline, addWindows, projectUVs, surfaceTexture } from "../render/worldLook.ts";
+import { addSkyline, addWindows, pieceLook, projectUVs, surfaceTexture, trimGeometry, weather } from "../render/worldLook.ts";
 
 const PIECE_COLOR = 0x8a8a8d;
 /** Lighter edges keep platform borders readable. */
-const EDGE_COLOR = 0xc8c8c4;
+const EDGE_COLOR = 0xaaa89f;
 /** Surfaces read at a glance: a pale taut tarp with a bright trim, near-black glossy mud. */
 const SURFACE_LOOK: Record<Surface, { color: number; edge: number }> = {
   normal: { color: PIECE_COLOR, edge: EDGE_COLOR },
@@ -180,32 +180,52 @@ export class LevelWorld implements LevelInfo {
 
 /** Adds every piece of `level` to the scene and the physics world. */
 export function buildLevel(level: Level, scene: THREE.Scene, physics: RAPIER.World): LevelWorld {
-  const looks = new Map<Surface, { mesh: THREE.Material; edge: THREE.Material }>();
-  const lookFor = (surface: Surface) => {
-    let look = looks.get(surface);
+  const looks = new Map<string, { mesh: THREE.Material; edge: THREE.Material }>();
+  const lookFor = (surface: Surface, variant: number) => {
+    const id = `${surface}:${variant}`;
+    let look = looks.get(id);
     if (!look) {
       const { color, edge } = SURFACE_LOOK[surface];
+      const map = surfaceTexture(surface, variant);
       look = {
         mesh:
           surface === "mud"
-            ? new THREE.MeshPhongMaterial({ color, map: surfaceTexture(surface), shininess: 80, specular: 0x6a6258 })
-            : new THREE.MeshLambertMaterial({ color, map: surfaceTexture(surface) }),
-        edge: new THREE.LineBasicMaterial({ color: edge }),
+            ? new THREE.MeshPhongMaterial({ color, map, shininess: 80, specular: 0x6a6258 })
+            : surface === "normal"
+              ? weather(new THREE.MeshLambertMaterial({ color, map }))
+              : new THREE.MeshLambertMaterial({ color, map }),
+        edge: new THREE.MeshBasicMaterial({ color: edge, side: THREE.DoubleSide }),
       };
-      looks.set(surface, look);
+      looks.set(id, look);
     }
     return look;
   };
   const DEG = Math.PI / 180;
   const built = new LevelWorld();
+  // Tops of the still, unrotated boxes, to leave out trim where surfaces join.
+  const tops = level.pieces.filter(
+    (p) => p.shape === "box" && p.motion.kind === "none" && p.rotation.x === 0 && p.rotation.y === 0 && p.rotation.z === 0,
+  );
+  const onATop = (w: THREE.Vector3) =>
+    tops.some(
+      (p) =>
+        Math.abs(p.position.y + p.size.y / 2 - w.y) < 0.02 &&
+        Math.abs(w.x - p.position.x) < p.size.x / 2 &&
+        Math.abs(w.z - p.position.z) < p.size.z / 2,
+    );
 
   for (const piece of level.pieces) {
-    const look = lookFor(piece.surface);
-    const geo = geometryFor(piece);
-    const mesh = new THREE.Mesh(projectUVs(geo), look.mesh);
+    const { variant, offset } = pieceLook(piece.id);
+    const look = lookFor(piece.surface, variant);
+    const geo = projectUVs(geometryFor(piece), offset);
+    const mesh = new THREE.Mesh(geo, look.mesh);
     mesh.position.set(piece.position.x, piece.position.y, piece.position.z);
     mesh.rotation.set(piece.rotation.x * DEG, piece.rotation.y * DEG, piece.rotation.z * DEG);
-    mesh.add(new THREE.LineSegments(new THREE.EdgesGeometry(geo, 30), look.edge));
+    // Readability (§6): a pale trim on the edges of surfaces you can land on.
+    mesh.updateMatrixWorld();
+    const toWorld = (local: THREE.Vector3) => local.clone().applyMatrix4(mesh.matrixWorld);
+    const trim = trimGeometry(geo, mesh.quaternion, piece.motion.kind === "none" ? (q) => onATop(toWorld(q)) : undefined);
+    if (trim) mesh.add(new THREE.Mesh(trim, look.edge));
     scene.add(mesh);
 
     const q = mesh.quaternion;
