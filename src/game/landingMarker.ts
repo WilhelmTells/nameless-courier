@@ -4,6 +4,7 @@
 import * as THREE from "three";
 import RAPIER from "@dimforge/rapier3d-compat";
 import { markerScale } from "../core/cameraCore.ts";
+import { SHARP_LAYER } from "../render/retroPass.ts";
 
 const MAX_PROBE = 1000; // m
 const RAY_START = 0.05; // start the ray slightly above the tip, m
@@ -40,6 +41,8 @@ export class LandingMarker {
     for (const [geo, color, order] of parts) {
       const m = new THREE.Mesh(geo, flat(color, order));
       m.renderOrder = 10 + order;
+      // Drawn at full resolution, over the low-resolution scene (§6 readability).
+      m.layers.set(SHARP_LAYER);
       this.marker.add(m);
     }
 

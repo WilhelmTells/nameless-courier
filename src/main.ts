@@ -18,6 +18,7 @@ import type { FlyCamera } from "./game/flyCamera.ts";
 import { DEFAULT_LEVEL, LEVEL_ALIASES, levelFromSearch, teleportTargets, type TeleportTarget } from "./levels/index.ts";
 import { createFigure } from "./render/figureRig.ts";
 import { createPogoRig } from "./render/pogoRig.ts";
+import { RetroPass } from "./render/retroPass.ts";
 import { ENDING, FIGURE_LINES, OPENING } from "./story.ts";
 import { Screens } from "./ui/screens.ts";
 import { VERSION } from "./version.ts";
@@ -75,6 +76,7 @@ async function boot(): Promise<void> {
   const canvas = document.querySelector<HTMLCanvasElement>("#game")!;
   const renderer = new THREE.WebGLRenderer({ canvas, antialias: true });
   renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
+  const retro = new RetroPass(renderer);
 
   const scene = new THREE.Scene();
   const fogColor = new THREE.Color(0x1a1b1d);
@@ -320,6 +322,7 @@ async function boot(): Promise<void> {
     const w = window.innerWidth;
     const h = window.innerHeight;
     renderer.setSize(w, h, false);
+    retro.setSize(w, h);
     camera.aspect = w / h;
     camera.updateProjectionMatrix();
   }
@@ -345,7 +348,7 @@ async function boot(): Promise<void> {
       accumulator = 0;
       fly.update(frameDt);
       rideHint.textContent = rideHintText = "fly: WASD · Space / Shift up, down · wheel speed · Ctrl fast · F back";
-      renderer.render(scene, camera);
+      retro.render(scene, camera);
       return;
     }
 
@@ -437,7 +440,7 @@ async function boot(): Promise<void> {
     chargeFill.style.width = `${pogo.charge.charge * 100}%`;
     chargeBar.classList.toggle("armed", pogo.charge.armed);
 
-    renderer.render(scene, camera);
+    retro.render(scene, camera);
   });
 }
 

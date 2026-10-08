@@ -212,3 +212,21 @@ export const DEFAULT_CAMERA: Readonly<CameraConfig> = {
 
 /** Live values. The debug panel changes these while the game runs. */
 export const cameraConfig: CameraConfig = { ...DEFAULT_CAMERA };
+
+/** The retro look (§6): a low internal resolution, upscaled with hard pixels, and ordered dithering. */
+export interface LookConfig {
+  /** Render at low resolution; off renders at full resolution, without dithering. */
+  pixelated: boolean;
+  /** Internal render height, lines. */
+  lines: number;
+  /** Colour levels per channel after dithering. */
+  colorLevels: number;
+}
+
+export const DEFAULT_LOOK: Readonly<LookConfig> = {
+  pixelated: true,
+  lines: 480,
+  colorLevels: 32,
+};
+
+export const lookConfig: LookConfig = { ...DEFAULT_LOOK };

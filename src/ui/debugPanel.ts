@@ -2,7 +2,7 @@
 // camera value and readouts of the simulation.
 
 import GUI from "lil-gui";
-import { cameraConfig, DEFAULT_CAMERA, DEFAULT_POGO, pogoConfig, type CameraConfig, type PogoConfig } from "../config.ts";
+import { cameraConfig, DEFAULT_CAMERA, DEFAULT_LOOK, DEFAULT_POGO, lookConfig, pogoConfig, type CameraConfig, type PogoConfig } from "../config.ts";
 import { controlMode, onControlModeChange, setControlMode, type ControlMode } from "../game/input.ts";
 import type { FlyCamera } from "../game/flyCamera.ts";
 import type { Pogo } from "../game/pogo.ts";
@@ -178,12 +178,19 @@ export function createDebugPanel(
   addGroup(gui, POGO);
   addGroup(gui, CAMERA);
 
+  // The retro look (§6); not saved, a reload restores it.
+  const look = gui.addFolder("Look").close();
+  look.add(lookConfig, "pixelated").name("Low resolution + dither");
+  look.add(lookConfig, "lines", 240, 1080, 10).name("Lines");
+  look.add(lookConfig, "colorLevels", 4, 256, 1).name("Colour levels");
+
   const actions = {
     copyValues: () =>
       navigator.clipboard?.writeText(JSON.stringify({ pogo: pogoConfig, camera: cameraConfig }, null, 2)),
     resetValues: () => {
       Object.assign(pogoConfig, DEFAULT_POGO);
       Object.assign(cameraConfig, DEFAULT_CAMERA);
+      Object.assign(lookConfig, DEFAULT_LOOK);
       gui.controllersRecursive().forEach((c) => c.updateDisplay());
       save(POGO);
       save(CAMERA);
