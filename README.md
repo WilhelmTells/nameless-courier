@@ -9,7 +9,7 @@ who may not exist. One bad bounce can cost a lot of progress.
 **Movement playground** (test blocks, with the tuning panel):
 https://wilhelmtells.github.io/nameless-courier/?debug&level=playground
 
-Early prototype: the first five zones in grey-box. Desktop browsers with keyboard
+Early prototype: all six zones, base to summit, in grey-box. Desktop browsers with keyboard
 and mouse.
 
 ## Controls
@@ -38,7 +38,8 @@ Only at a few calm spots can the courier get off and stand for a while.
 Higher up, the ground changes: pale tarp pads throw the courier much higher,
 dark mud swallows the bounce and the speed. Further still, old machinery keeps
 running for nobody: platforms carry you along, and anything that swings or
-turns will knock you off.
+turns will knock you off. At the very top, a last crossing over the open
+drop: miss it and you fall all the way down.
 
 ## Development
 
