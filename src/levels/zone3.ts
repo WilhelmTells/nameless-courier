@@ -167,5 +167,7 @@ export const zone3: Zone = {
   restSpots: [{ id: "zone-3-top", min: { x: -12, y: ROOF, z: -58 }, max: { x: -6, y: ROOF + 3, z: -52 } }],
   // The three storeys inside the shell, under the roof.
   rooms: [{ min: { x: X0, y: F1, z: Z0 }, max: { x: X1, y: ROOF - SLAB, z: Z1 } }],
+  // The club, first heard here: behind the sealed door on floor 1 (the listener above hears it too).
+  clubs: [{ x: X0 - 0.5, y: F1 + 1.3, z: -49.2 }],
   figures: [{ id: "listener", pos: { x: -13.5, y: ROOF, z: -58.4 }, facing: 0, pose: "stand" }],
 };

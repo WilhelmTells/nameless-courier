@@ -114,3 +114,12 @@ test("piece ids are unique", () => {
   const ids = tower.pieces.map((p) => p.id);
   assert.equal(new Set(ids).size, ids.length);
 });
+
+test("the distant club plays inside solid walls, out of reach", () => {
+  assert.ok((tower.clubs ?? []).length >= 2);
+  for (const c of tower.clubs ?? []) {
+    // Inside a wall or a block: never in open air the courier can reach.
+    const inPiece = tower.pieces.some((p) => p.shape === "box" && Math.abs(c.x - p.position.x) < p.size.x / 2 && Math.abs(c.y - p.position.y) < p.size.y / 2 && Math.abs(c.z - p.position.z) < p.size.z / 2);
+    assert.ok(inPiece, `club at ${c.x}, ${c.y}, ${c.z}`);
+  }
+});

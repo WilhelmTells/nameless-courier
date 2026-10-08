@@ -71,6 +71,11 @@ export interface Zone {
   figures: Figure[];
   /** Enclosed rooms (box regions): the wall faces inside them get no windows or ivy. */
   rooms?: { min: Vec3; max: Vec3 }[];
+  /**
+   * Where the distant club plays (§7): a muffled techno track heard through
+   * the walls, never reached. Sound only.
+   */
+  clubs?: Vec3[];
 }
 
 /** What the game builds and runs: one world, made of zones or standing alone. */

@@ -26,7 +26,9 @@ import { addCrows } from "./render/crows.ts";
 import { addAtmosphere, capeWind } from "./render/atmosphere.ts";
 import { addNightLife } from "./render/nightLife.ts";
 import { addInteriors } from "./render/interiors.ts";
+import { addClubDoor } from "./render/clubDoor.ts";
 import { addAmbience } from "./audio/ambience.ts";
+import { addClub } from "./audio/club.ts";
 import { Sound } from "./audio/engine.ts";
 import { addPogoSounds } from "./audio/pogoSounds.ts";
 import { ENDING, FIGURE_LINES, OPENING } from "./story.ts";
@@ -137,6 +139,8 @@ async function boot(): Promise<void> {
 
   const updateAmbience = addAmbience(sound, LEVEL.rooms ?? []);
   const updatePogoSounds = addPogoSounds(sound);
+  const club = addClub(sound, LEVEL.clubs ?? []);
+  const updateClubDoor = LEVEL.zones.length > 0 ? addClubDoor(scene) : () => {};
 
   const levelWorld = buildLevel(LEVEL, scene, physics);
   // Build the query structures once, so the pogo, camera and marker can cast
@@ -584,6 +588,8 @@ async function boot(): Promise<void> {
     sound.setMenu(mode === "title" || mode === "paused");
     sound.listen(camera);
     updateAmbience(tip, time / 1000);
+    club.update(tip);
+    updateClubDoor(club.pulse(time / 1000));
     updatePogoSounds({ pos: pogo.pos, vel: pogo.vel, charge: pogo.charge, riding: pogo.ride.phase === "riding", sounds: pogo.sounds });
 
     retro.render(scene, camera);

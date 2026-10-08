@@ -21,5 +21,6 @@ export const tower: Level = {
   restSpots: zones.flatMap((z) => z.restSpots),
   figures: zones.flatMap((z) => z.figures),
   rooms: zones.flatMap((z) => z.rooms ?? []),
+  clubs: zones.flatMap((z) => z.clubs ?? []),
   zones,
 };

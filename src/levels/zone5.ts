@@ -86,6 +86,8 @@ export const zone5: Zone = {
     { id: "zone-5-crossing", min: { x: -12, y: GANTRY, z: -50 }, max: { x: -8, y: GANTRY + 3, z: -46 } },
     { id: "zone-5-top", min: { x: -12, y: CRANE, z: -81 }, max: { x: -8, y: CRANE + 3, z: -77 } },
   ],
+  // The club again, deep inside the machine house.
+  clubs: [{ x: 2, y: D_TOP + 4, z: -47 }],
   figures: [
     { id: "let-go", pos: { x: -11.6, y: GANTRY, z: -46.4 }, facing: 0, pose: "stand" },
     { id: "keeper", pos: { x: -12.6, y: CRANE, z: -81.6 }, facing: 180, pose: "stand" },
