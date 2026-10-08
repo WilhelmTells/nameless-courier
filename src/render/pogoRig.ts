@@ -10,6 +10,10 @@ const PARCEL_COLOR = 0xd9772b; // faded signal orange, used on nothing else: the
 /** Standing pose: the rider steps down off the pegs and beside the staff, holding it. */
 const STAND_OFFSET = new THREE.Vector3(-0.35, -0.31, 0);
 
+/** How far the bag swings for each metre the cape's hem swings, radians, and at most. */
+const BAG_FOLLOW = 1.3;
+const BAG_SWING = 0.45;
+
 /** Sitting on the ground (the end of the climb): the rider sinks this far below standing. */
 const SIT_DROP = 0.47;
 
@@ -114,17 +118,26 @@ export function createPogoRig(): PogoRig {
   const peak = add(rider, new THREE.CylinderGeometry(0.13, 0.13, 0.015, 10, 1, false, Math.PI / 2, Math.PI), shadow, 0, 1.69, RIDER_Z - 0.04);
   peak.rotation.x = -0.15;
 
-  // Bag at the left hip (the rider's left is -X), the strap across the chest,
-  // and the orange label on its outer side and back.
+  // Bag at the left hip (the rider's left is -X), hanging from its top so it
+  // can swing, and the orange label on its outer side and back.
+  const bagPivot = new THREE.Group();
+  bagPivot.position.set(-0.29, 1.09, RIDER_Z - 0.06);
+  rider.add(bagPivot);
   const bag = new THREE.Group();
-  bag.position.set(-0.29, 0.98, RIDER_Z - 0.06);
-  rider.add(bag);
+  bag.position.y = -0.11;
+  bagPivot.add(bag);
   add(bag, new THREE.BoxGeometry(0.09, 0.22, 0.28), leather, 0, 0, 0);
   add(bag, new THREE.BoxGeometry(0.1, 0.1, 0.29), darkLeather, -0.005, 0.07, 0);
   add(bag, new THREE.BoxGeometry(0.012, 0.06, 0.1), label, -0.05, -0.04, 0.04);
   add(bag, new THREE.BoxGeometry(0.06, 0.06, 0.012), label, -0.02, -0.04, 0.142);
-  const strap = add(rider, new THREE.BoxGeometry(0.04, 0.72, 0.015), darkLeather, -0.06, 1.24, RIDER_Z - 0.19);
-  strap.rotation.z = -0.62;
+  // The strap: from the bag up across the chest, over the right shoulder and
+  // down the back to the bag again, close against the coat.
+  const strapPath = [
+    [-0.27, 1.08, -0.06], [-0.19, 1.16, -0.17], [-0.05, 1.29, -0.215], [0.08, 1.4, -0.205],
+    [0.16, 1.5, -0.12], [0.17, 1.56, 0], [0.13, 1.47, 0.16], [0, 1.31, 0.215],
+    [-0.15, 1.17, 0.18], [-0.26, 1.09, 0.04],
+  ].map(([x, y, z]) => new THREE.Vector3(x, y, RIDER_Z + z));
+  add(rider, new THREE.TubeGeometry(new THREE.CatmullRomCurve3(strapPath, true), 40, 0.014, 4, true), darkLeather, 0, 0, 0);
 
   // Cape: a grid of columns hanging from the shoulders, ragged at the hem.
   const base: number[] = [];
@@ -175,6 +188,10 @@ export function createPogoRig(): PogoRig {
       place();
     },
     setCape(trail, time, speed) {
+      // The bag swings with the same spring as the hem, heavier and without flutter.
+      const swing = (v: number) => Math.max(-BAG_SWING, Math.min(BAG_SWING, v * BAG_FOLLOW));
+      bagPivot.rotation.z = swing(trail.x);
+      bagPivot.rotation.x = swing(-trail.z);
       // The hem never swings into the body: forward swings are mostly held back.
       const tx = trail.x;
       const ty = trail.y;
