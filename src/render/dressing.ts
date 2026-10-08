@@ -10,6 +10,7 @@ import * as THREE from "three";
 import { mergeGeometries } from "three/examples/jsm/utils/BufferGeometryUtils.js";
 import type { Level, Piece } from "../levels/types.ts";
 import { deadLantern, lantern } from "./lantern.ts";
+import { windStrength } from "./atmosphere.ts";
 
 /** Fixed pseudo-random numbers, so the dressing is the same every time. */
 function random(seed: number): () => number {
@@ -144,6 +145,19 @@ const SPLASH_TIME = 0.16;
 export function addDressing(level: Level, scene: THREE.Scene): (time: number) => void {
   const rust = new THREE.MeshLambertMaterial({ map: rustTexture() });
   const ivy = new THREE.MeshLambertMaterial({ map: ivyTexture(), alphaTest: 0.5, side: THREE.DoubleSide });
+  // The ivy sways in the wind: its hanging ends most, its top not at all.
+  const sway = { value: 0 };
+  const swayTime = { value: 0 };
+  ivy.onBeforeCompile = (shader) => {
+    shader.uniforms.ivySway = sway;
+    shader.uniforms.ivyTime = swayTime;
+    shader.vertexShader = shader.vertexShader
+      .replace("#include <common>", "#include <common>\nuniform float ivySway;\nuniform float ivyTime;")
+      .replace(
+        "#include <begin_vertex>",
+        "#include <begin_vertex>\nfloat hang = 1.0 - uv.y;\ntransformed.xz += vec2(-0.8, 0.6) * ivySway * hang * hang * (0.6 + 0.4 * sin(ivyTime * 1.7 + position.x * 0.8 + position.z * 0.6 + position.y));",
+      );
+  };
   const crack = new THREE.MeshBasicMaterial({ map: crackTexture(), transparent: true, depthWrite: false, polygonOffset: true, polygonOffsetFactor: -2 });
   const stain = new THREE.MeshBasicMaterial({ color: 0x000000, transparent: true, opacity: 0.22, depthWrite: false, polygonOffset: true, polygonOffsetFactor: -1 });
   const waterMap = waterTexture();
@@ -467,6 +481,8 @@ export function addDressing(level: Level, scene: THREE.Scene): (time: number) =>
   if (drips.length > 0) scene.add(drops, hits);
 
   return (time) => {
+    swayTime.value = time;
+    sway.value = 0.05 + 0.12 * windStrength(time);
     waterMap.offset.y = time * 2.2;
     splashMat.opacity = 0.45 + 0.3 * Math.abs(Math.sin(time * 9));
     drips.forEach((d, i) => {

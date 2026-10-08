@@ -23,6 +23,7 @@ import { RetroPass } from "./render/retroPass.ts";
 import { addArchitecture, addBeacon, addSkyline } from "./render/worldLook.ts";
 import { addDressing } from "./render/dressing.ts";
 import { addCrows } from "./render/crows.ts";
+import { addAtmosphere, capeWind } from "./render/atmosphere.ts";
 import { ENDING, FIGURE_LINES, OPENING } from "./story.ts";
 import { Screens } from "./ui/screens.ts";
 import { VERSION } from "./version.ts";
@@ -114,6 +115,8 @@ async function boot(): Promise<void> {
   const updateWindows = LEVEL.zones.length > 0 ? addArchitecture(LEVEL, scene) : () => {};
   const updateDressing = LEVEL.zones.length > 0 ? addDressing(LEVEL, scene) : () => {};
   const crows = LEVEL.zones.length > 0 ? addCrows(LEVEL, scene) : null;
+  const updateAtmosphere = LEVEL.zones.length > 0 ? addAtmosphere(scene) : () => {};
+  const capeGust = new THREE.Vector3();
 
   const levelWorld = buildLevel(LEVEL, scene, physics);
   // Build the query structures once, so the pogo, camera and marker can cast
@@ -448,6 +451,7 @@ async function boot(): Promise<void> {
     updateDressing(time / 1000);
     updateWindows(tip, time / 1000);
     crows?.update(tip, time / 1000, Math.min(0.1, Math.max(0, frameDt)));
+    updateAtmosphere(tip, time / 1000, Math.min(0.1, Math.max(0, frameDt)));
     tip.set(
       pogo.prevPos.x + (pogo.pos.x - pogo.prevPos.x) * a,
       pogo.prevPos.y + (pogo.pos.y - pogo.prevPos.y) * a,
@@ -471,6 +475,8 @@ async function boot(): Promise<void> {
         prevCapeOffset.y + (cape.offset.y - prevCapeOffset.y) * a - capeRest.y,
         prevCapeOffset.z + (cape.offset.z - prevCapeOffset.z) * a - capeRest.z,
       )
+      // The wind tugs at the cape, harder higher up.
+      .add(capeWind(time / 1000, tip.y, capeGust))
       .applyQuaternion(rigTurnBack.copy(rig.group.quaternion).invert());
     rig.setCape(capeTrail, time / 1000, Math.hypot(pogo.vel.x, pogo.vel.y, pogo.vel.z));
 
