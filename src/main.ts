@@ -32,6 +32,7 @@ import { addClub } from "./audio/club.ts";
 import { Sound } from "./audio/engine.ts";
 import { addMurmur } from "./audio/murmur.ts";
 import { addPogoSounds } from "./audio/pogoSounds.ts";
+import { WATER } from "./levels/surroundings.ts";
 import { ENDING, FIGURE_LINES, OPENING } from "./story.ts";
 import type { Volumes } from "./core/audioCore.ts";
 import { Screens } from "./ui/screens.ts";
@@ -53,6 +54,11 @@ const FACING_MAX_ANGLE = 100;
 const TITLE = "The Endless Journey of a Nameless Courier";
 /** Reaching this rest spot ends the run. */
 const SUMMIT_ID = "summit";
+/** Below this the courier is in the floodwater (user: back to the start), m. */
+const SINK_Y = WATER + 0.5;
+/** The screen fades to black while the courier sinks, then back up at the start, s. */
+const SINK_FADE = 0.9;
+const SURFACE_FADE = 0.7;
 
 /**
  * title: menu over the paused game. opening: the opening text, then a fade
@@ -368,6 +374,36 @@ async function boot(): Promise<void> {
       { label: "Effects", value: v.effects, change: volume("effects") },
     ]);
   };
+  // Fallen into the water: fade out, start again at the bottom, fade back in.
+  // The run goes on (time and falls are kept).
+  let sinkTime = -1;
+  let surfaceTime = -1;
+  const stepSinking = (dt: number) => {
+    // Held while paused.
+    if (mode !== "play") return;
+    if (sinkTime < 0 && surfaceTime < 0) {
+      if (testLevel || pogo.pos.y > SINK_Y) return;
+      sinkTime = 0;
+      screens.show(0);
+    }
+    if (sinkTime >= 0) {
+      sinkTime += dt;
+      screens.setBlack(Math.min(1, sinkTime / SINK_FADE));
+      if (sinkTime < SINK_FADE) return;
+      sinkTime = -1;
+      surfaceTime = 0;
+      pogo.reset(START);
+      orbit.yaw = 0;
+      stats = { ...stats, height: START.y, fallRef: START.y };
+      seenLaunches = pogo.launches;
+    }
+    surfaceTime += dt;
+    screens.setBlack(Math.max(0, 1 - surfaceTime / SURFACE_FADE));
+    if (surfaceTime >= SURFACE_FADE) {
+      surfaceTime = -1;
+      screens.hide();
+    }
+  };
   const pause = () => {
     if (mode !== "play") return;
     mode = "paused";
@@ -524,6 +560,8 @@ async function boot(): Promise<void> {
       sinceSave += SIM_DT;
       if (sinceSave >= SAVE_INTERVAL) save();
     }
+
+    stepSinking(Math.min(0.1, Math.max(0, frameDt)));
 
     // Interpolate between the last two simulation states.
     const a = loop.alpha;

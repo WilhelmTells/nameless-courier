@@ -19,7 +19,8 @@ const MARGIN = 14;
 const CANAL = 12;
 const QUAY = 10;
 const PLAZA = { x0: STRUCTURE.x0 - MARGIN, x1: STRUCTURE.x1 + MARGIN, z0: STRUCTURE.z0 - MARGIN, z1: STRUCTURE.z1 + MARGIN };
-const WATER = -2;
+/** Top of the floodwater, m. */
+export const WATER = -2;
 /** The bridge from the front of the yard: half its width, m. */
 const BRIDGE = 3;
 /** The invisible boundary: this far beyond the quays, m. */
