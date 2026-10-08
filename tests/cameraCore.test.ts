@@ -2,6 +2,7 @@ import { test } from "node:test";
 import assert from "node:assert/strict";
 import { DEFAULT_CAMERA } from "../src/config.ts";
 import {
+  sensitivityFactor,
   applyMouse,
   followYaw,
   applyZoom,
@@ -108,4 +109,12 @@ test("tilt only works with drops of at least the minimum", () => {
   assert.equal(tiltDrop(2.9, 3), 0);
   assert.equal(tiltDrop(3, 3), 3);
   assert.equal(tiltDrop(8, 3), 8);
+});
+
+test("the sensitivity slider scales the speeds evenly around the default", () => {
+  assert.equal(sensitivityFactor(0.5), 1);
+  assert.ok(Math.abs(sensitivityFactor(1) * sensitivityFactor(0) - 1) < 1e-12);
+  assert.ok(sensitivityFactor(0) > 0.3 && sensitivityFactor(1) < 3);
+  assert.equal(sensitivityFactor(5), sensitivityFactor(1));
+  assert.equal(sensitivityFactor(Number.NaN), 1);
 });

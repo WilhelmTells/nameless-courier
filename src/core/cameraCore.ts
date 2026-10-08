@@ -122,3 +122,12 @@ export function springArm(current: number, allowed: number, pushOutRate: number,
 export function markerScale(height: number): number {
   return 1 - 0.4 * clamp(height / 10, 0, 1);
 }
+
+/**
+ * The mouse sensitivity slider (0..1, 0.5 the default) as a factor on the
+ * tuned speeds: from about a third to about three times, even on a log scale.
+ */
+export function sensitivityFactor(slider: number): number {
+  const v = Math.min(1, Math.max(0, Number.isFinite(slider) ? slider : 0.5));
+  return Math.pow(2, (v - 0.5) * 3);
+}

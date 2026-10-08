@@ -29,12 +29,20 @@ to the camera, Space charges, and the mouse orbits the camera.
 | Mouse wheel | Zoom |
 | R | Reset the camera: behind you, at the usual angle and distance |
 | E | Get off the pogo at a calm spot, and back on |
+| Q | Back to the last checkpoint (easy mode only) |
 | Esc | Pause (resume, settings, volumes, quit to title) |
+
+Settings also hold the mouse sensitivity and the volumes.
 
 The pogo never stops bouncing. The lean at the moment the tip touches the
 ground decides where the next bounce goes; there is no control in the air.
 Leaning with your motion builds speed, leaning against it brakes.
 Only at a few calm spots can the courier get off and stand for a while.
+
+**Easy mode** (off by default, in Settings): getting off at a calm spot saves
+a checkpoint there, and Q or the pause menu takes you back to it after a
+fall. A run that uses it is marked as an easy run, and its time does not
+count as a best time.
 
 Higher up, the ground changes: pale tarp pads throw the courier much higher,
 dark mud swallows the bounce and the speed. Further still, old machinery keeps

@@ -12,7 +12,7 @@ import { inRestSpot, standAmount } from "./core/restCore.ts";
 import { restOffset, restSwing, stepSwing, type SwingConfig } from "./core/swingCore.ts";
 import { OrbitCamera } from "./game/camera.ts";
 import { controlMode, initInput, readInput, setControlMode, setStanding, type ControlMode } from "./game/input.ts";
-import { easyMode, setEasyMode } from "./game/easyMode.ts";
+import { easyMode, mouseSensitivity, setEasyMode, setMouseSensitivity } from "./game/settings.ts";
 import { LandingMarker } from "./game/landingMarker.ts";
 import { Pogo } from "./game/pogo.ts";
 import { buildLevel } from "./game/world.ts";
@@ -409,6 +409,7 @@ async function boot(): Promise<void> {
     const volume = (key: keyof Volumes) => (v: number) => sound.setVolumes({ ...sound.getVolumes(), [key]: v });
     const v = sound.getVolumes();
     screens.setSliders([
+      { label: "Mouse", value: mouseSensitivity(), change: setMouseSensitivity },
       { label: "Volume", value: v.master, change: volume("master") },
       { label: "Ambience", value: v.ambience, change: volume("ambience") },
       { label: "Music", value: v.music, change: volume("music") },
