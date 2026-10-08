@@ -1,4 +1,4 @@
-// Save data for the current run and the best height. Parsing checks every
+// Save data for the current run, the best height and the best clear time. Parsing checks every
 // field; anything missing or malformed gives no save rather than a broken one.
 
 import type { RunStats } from "./fallCore.ts";
@@ -89,6 +89,18 @@ export function parseBest(text: string | null): number | null {
   try {
     const data: unknown = JSON.parse(text);
     return isObj(data) ? num(data.height) : null;
+  } catch {
+    return null;
+  }
+}
+
+/** The saved best clear time (summit reached), s, or null before a first clear. */
+export function parseBestTime(text: string | null): number | null {
+  if (text === null) return null;
+  try {
+    const data: unknown = JSON.parse(text);
+    const time = isObj(data) ? num(data.time) : null;
+    return time !== null && time > 0 ? time : null;
   } catch {
     return null;
   }

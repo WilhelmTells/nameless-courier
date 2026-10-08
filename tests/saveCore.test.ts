@@ -1,6 +1,6 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
-import { parseBest, parseRun, SAVE_VERSION, type RunSave } from "../src/core/saveCore.ts";
+import { parseBest, parseBestTime, parseRun, SAVE_VERSION, type RunSave } from "../src/core/saveCore.ts";
 
 const run: RunSave = {
   version: SAVE_VERSION,
@@ -63,4 +63,12 @@ test("best height reads back, anything else gives none", () => {
   assert.equal(parseBest(null), null);
   assert.equal(parseBest("[]"), null);
   assert.equal(parseBest("x"), null);
+});
+
+test("best clear time reads back; before a first clear there is none", () => {
+  assert.equal(parseBestTime(JSON.stringify({ height: 158, time: 900.5 })), 900.5);
+  assert.equal(parseBestTime(JSON.stringify({ height: 18.5 })), null);
+  assert.equal(parseBestTime(JSON.stringify({ height: 18.5, time: 0 })), null);
+  assert.equal(parseBestTime(null), null);
+  assert.equal(parseBestTime("x"), null);
 });

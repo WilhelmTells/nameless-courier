@@ -70,3 +70,69 @@ body {
 #charge.armed #charge-fill {
   background: #f2f0ea;
 }
+
+#screen {
+  position: fixed;
+  inset: 0;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 24px;
+  padding: 16px;
+  font: 14px/1.6 ui-monospace, "SF Mono", Menlo, Consolas, monospace;
+  color: #c8c6c0;
+  text-align: center;
+}
+
+#screen[hidden] {
+  display: none;
+}
+
+#screen-heading {
+  font-size: 18px;
+}
+
+#screen-heading:empty,
+#screen-text:empty,
+#screen-info:empty,
+#screen-menu:empty {
+  display: none;
+}
+
+#screen-text p {
+  margin: 0 0 8px;
+  opacity: 0;
+  transition: opacity 1.5s;
+}
+
+#screen-text p.shown {
+  opacity: 1;
+}
+
+#screen-info {
+  white-space: pre;
+  text-align: left;
+}
+
+#screen-menu {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+#screen-menu button {
+  font: inherit;
+  color: inherit;
+  background: none;
+  border: 1px solid rgba(200, 198, 192, 0.4);
+  padding: 4px 16px;
+  cursor: pointer;
+}
+
+#screen-menu button:hover,
+#screen-menu button:focus-visible {
+  border-color: #f2f0ea;
+  color: #f2f0ea;
+  outline: none;
+}

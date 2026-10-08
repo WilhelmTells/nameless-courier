@@ -2,11 +2,12 @@ import * as THREE from "three";
 import RAPIER from "@dimforge/rapier3d-compat";
 import { FALL_HEIGHT, pogoConfig, SIM_HZ } from "./config.ts";
 import { formatTime, newStats, onLaunch } from "./core/fallCore.ts";
-import { parseBest, parseRun, SAVE_VERSION, type RunSave } from "./core/saveCore.ts";
+import { parseBest, parseBestTime, parseRun, SAVE_VERSION, type RunSave } from "./core/saveCore.ts";
+import { endingDarkEnd, endingStatsAt, endingView, openingFadeStart, openingView } from "./core/frameCore.ts";
 import { advanceLoop } from "./core/loopCore.ts";
 import { followYaw } from "./core/cameraCore.ts";
 import { stickAxis } from "./core/pogoCore.ts";
-import { standAmount } from "./core/restCore.ts";
+import { inRestSpot, standAmount } from "./core/restCore.ts";
 import { OrbitCamera } from "./game/camera.ts";
 import { controlMode, initInput, onControlModeChange, readInput, setStanding, type ControlMode } from "./game/input.ts";
 import { LandingMarker } from "./game/landingMarker.ts";
@@ -15,6 +16,8 @@ import { buildLevel } from "./game/world.ts";
 import type { FlyCamera } from "./game/flyCamera.ts";
 import { DEFAULT_LEVEL, LEVEL_ALIASES, levelFromSearch, teleportTargets, type TeleportTarget } from "./levels/index.ts";
 import { createPogoRig } from "./render/pogoRig.ts";
+import { ENDING, OPENING } from "./story.ts";
+import { Screens } from "./ui/screens.ts";
 import { VERSION } from "./version.ts";
 
 const FLOOR_SIZE = 1000; // metres, large enough that its edge is lost in fog
@@ -30,6 +33,16 @@ const BEST_KEY = "courier.best";
 const SAVE_INTERVAL = 1;
 /** The courier turns towards leans within this angle of where they face; further back (braking) they keep facing, degrees. */
 const FACING_MAX_ANGLE = 100;
+const TITLE = "The Endless Journey of a Nameless Courier";
+/** Reaching this rest spot ends the run. */
+const SUMMIT_ID = "summit";
+
+/**
+ * title: menu over the paused game. opening: the opening text, then a fade
+ * into the game. play: the climb. ending: the summit was reached; the
+ * timer has stopped and the ending text plays.
+ */
+type Mode = "title" | "opening" | "play" | "ending";
 
 function readStorage(key: string): string | null {
   try {
@@ -112,28 +125,45 @@ async function boot(): Promise<void> {
   placeMovers(stats.time);
   const savedBest = SAVES ? parseBest(readStorage(BEST_KEY)) : null;
   if (savedBest !== null) stats.best = Math.max(stats.best, savedBest);
+  /** Best clear time, s; null before the first clear. */
+  let bestTime = SAVES ? parseBestTime(readStorage(BEST_KEY)) : null;
   let seenLaunches = pogo.launches;
 
+  // Test levels skip the title and go straight to play.
+  let mode: Mode = SAVES ? "title" : "play";
+  /** Time in the opening or the ending, s. */
+  let modeTime = 0;
+  /** Simulation time since the summit was reached: the world keeps moving while the timer has stopped, s. */
+  let afterSummit = 0;
+  const worldTime = () => stats.time + afterSummit;
+  const summit = LEVEL.restSpots.filter((r) => r.id === SUMMIT_ID);
+
+  const writeBest = () => writeStorage(BEST_KEY, JSON.stringify(bestTime === null ? { height: stats.best } : { height: stats.best, time: bestTime }));
   let sinceSave = 0;
   const save = () => {
-    if (!SAVES) return;
+    if (!SAVES || mode !== "play") return;
     const run: RunSave = { version: SAVE_VERSION, level: LEVEL.id, pogo: pogo.snapshot(), yaw: orbit.yaw, stats };
     writeStorage(RUN_KEY, JSON.stringify(run));
-    writeStorage(BEST_KEY, JSON.stringify({ height: stats.best }));
+    writeBest();
     sinceSave = 0;
   };
   document.addEventListener("visibilitychange", () => {
     if (document.visibilityState === "hidden") save();
   });
   window.addEventListener("pagehide", save);
-  const newRun = () => {
+  /** Starts over at the bottom. `keepBest` keeps the best height and clear time (the debug tool clears them). */
+  const newRun = (keepBest: boolean) => {
+    const best = stats.best;
     if (SAVES) {
       writeStorage(RUN_KEY, null);
-      writeStorage(BEST_KEY, null);
+      if (!keepBest) writeStorage(BEST_KEY, null);
     }
     pogo.reset(START);
     orbit.yaw = 0;
     stats = newStats(START.y);
+    if (keepBest) stats.best = Math.max(stats.best, best);
+    else bestTime = null;
+    afterSummit = 0;
     placeMovers(stats.time);
     seenLaunches = pogo.launches;
   };
@@ -204,8 +234,71 @@ async function boot(): Promise<void> {
       flyCam.setActive(false);
     };
     fly = flyCam;
-    createDebugPanel(pogo, () => pogo.reset(START), newRun, teleportTargets(LEVEL), teleport, flyCam, dropHere);
+    createDebugPanel(pogo, () => pogo.reset(START), () => { newRun(false); play(); }, teleportTargets(LEVEL), teleport, flyCam, dropHere);
   }
+
+  const hud = document.querySelector<HTMLDivElement>("#hud")!;
+  const screens = new Screens();
+  const lockPointer = () => {
+    // A rejected lock (e.g. too soon after leaving it) is fine: a click on the game locks it.
+    Promise.resolve(canvas.requestPointerLock()).catch(() => {});
+  };
+  const play = () => {
+    mode = "play";
+    screens.hide();
+    hud.hidden = false;
+    lockPointer();
+  };
+  const startOpening = () => {
+    newRun(true);
+    mode = "opening";
+    modeTime = 0;
+    hud.hidden = true;
+    screens.show(1);
+    screens.setLines(OPENING);
+    lockPointer();
+  };
+  const showTitle = () => {
+    const hasRun = SAVES && parseRun(readStorage(RUN_KEY), LEVEL.id, LEVEL_ALIASES) !== null;
+    const confirmNew = () =>
+      screens.ask("Start a new run? The current run will be lost.", [
+        { label: "Start over", action: startOpening },
+        { label: "Back", action: showTitle },
+      ]);
+    mode = "title";
+    hud.hidden = true;
+    screens.title(TITLE, [
+      ...(hasRun ? [{ label: "Continue", action: play }] : []),
+      { label: "New run", action: hasRun ? confirmNew : startOpening },
+    ]);
+  };
+  const startEnding = () => {
+    mode = "ending";
+    modeTime = 0;
+    bestTime = bestTime === null ? stats.time : Math.min(bestTime, stats.time);
+    if (SAVES) {
+      // The run is over: nothing left to continue.
+      writeStorage(RUN_KEY, null);
+      writeBest();
+    }
+    screens.show(0);
+    screens.setLines(ENDING);
+  };
+  const showEndingStats = () => {
+    document.exitPointerLock();
+    screens.setInfo([`time   ${formatTime(stats.time)}`, `falls  ${stats.falls}`, `best   ${formatTime(bestTime ?? stats.time)}`].join("\n"));
+    screens.setMenu([{ label: "New run", action: startOpening }]);
+  };
+  // Any key or click skips ahead: the opening to its fade, the ending (once dark) to its stats.
+  const skip = () => {
+    if (mode === "opening") modeTime = Math.max(modeTime, openingFadeStart(OPENING.length));
+    if (mode === "ending" && modeTime >= endingDarkEnd()) modeTime = Math.max(modeTime, endingStatsAt(ENDING.length));
+  };
+  window.addEventListener("keydown", (e) => {
+    if (!e.repeat) skip();
+  });
+  window.addEventListener("mousedown", skip);
+  if (mode === "title") showTitle();
 
   function resize(): void {
     const w = window.innerWidth;
@@ -240,16 +333,45 @@ async function boot(): Promise<void> {
       return;
     }
 
+    let simulate = mode === "play" || mode === "ending";
+    if (mode === "opening") {
+      modeTime += frameDt;
+      const view = openingView(modeTime, OPENING.length);
+      screens.reveal(view.lines);
+      screens.setFade(view.black);
+      // The game starts under the fade.
+      simulate = view.black < 1;
+      if (view.done) play();
+    } else if (mode === "ending") {
+      modeTime += frameDt;
+      const view = endingView(modeTime, ENDING.length);
+      screens.setBlack(view.black);
+      screens.reveal(view.lines);
+      if (view.stats && !screens.hasMenu()) showEndingStats();
+    }
+
     const loop = advanceLoop(accumulator, frameDt, SIM_DT);
-    accumulator = loop.accumulator;
-    for (let i = 0; i < loop.steps; i++) {
-      pogo.step(readInput(), orbit.yaw, SIM_DT);
-      stats.time += SIM_DT;
-      levelWorld.advance(stats.time);
+    accumulator = simulate ? loop.accumulator : 0;
+    for (let i = 0; simulate && i < loop.steps; i++) {
+      const input = readInput();
+      if (mode === "ending") {
+        // At the summit the courier lets go: upright, and off the pogo at the next landing.
+        const r = pogo.ride;
+        const getOff = r.phase === "riding" && !r.requested && pogo.inRestSpot();
+        pogo.step({ mode: "wasd", lean: { x: 0, z: 0 }, charge: false, mouse: { dx: 0, dy: 0 }, toggleRide: getOff }, orbit.yaw, SIM_DT);
+        afterSummit += SIM_DT;
+      } else {
+        pogo.step(input, orbit.yaw, SIM_DT);
+        stats.time += SIM_DT;
+      }
+      levelWorld.advance(worldTime());
       physics.step();
       if (pogo.launches !== seenLaunches) {
         seenLaunches = pogo.launches;
-        stats = onLaunch(stats, pogo.groundY, FALL_HEIGHT);
+        if (mode !== "ending") {
+          stats = onLaunch(stats, pogo.groundY, FALL_HEIGHT);
+          if (summit.length > 0 && inRestSpot(summit, pogo.pos)) startEnding();
+        }
       }
       sinceSave += SIM_DT;
       if (sinceSave >= SAVE_INTERVAL) save();
@@ -257,7 +379,7 @@ async function boot(): Promise<void> {
 
     // Interpolate between the last two simulation states.
     const a = loop.alpha;
-    levelWorld.render(stats.time - SIM_DT * (1 - a));
+    levelWorld.render(worldTime() - SIM_DT * (1 - a));
     tip.set(
       pogo.prevPos.x + (pogo.pos.x - pogo.prevPos.x) * a,
       pogo.prevPos.y + (pogo.pos.y - pogo.prevPos.y) * a,
