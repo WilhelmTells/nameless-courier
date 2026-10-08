@@ -1,2 +1,2 @@
 // Shown on screen; keep in sync with "version" in package.json.
-export const VERSION = "v0.8.3-dev";
+export const VERSION = "v0.9.0-dev";

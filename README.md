@@ -9,8 +9,9 @@ who may not exist. One bad bounce can cost a lot of progress.
 **Movement playground** (test blocks, with the tuning panel):
 https://wilhelmtells.github.io/nameless-courier/?debug&level=playground
 
-Early prototype: all six zones, base to summit, in grey-box. Desktop browsers with keyboard
-and mouse.
+Early prototype: playable from start to end, all six zones in grey-box. Your
+run is saved as you climb; continue it from the title screen. Desktop browsers
+with keyboard and mouse.
 
 ## Controls
 
