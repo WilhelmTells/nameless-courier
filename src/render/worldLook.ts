@@ -243,8 +243,16 @@ function windowStone(): THREE.BufferGeometry {
 const isPlainBox = (p: Piece) =>
   p.shape === "box" && p.motion.kind === "none" && p.rotation.x === 0 && p.rotation.y === 0 && p.rotation.z === 0;
 
-/** Windows, bands, mouldings and pilasters on the tall walls of `level`. */
-export function addArchitecture(level: Level, scene: THREE.Scene): void {
+/** Now and then a window near the courier changes: one lights up, or one goes dark (user). */
+const WINDOW_CHANGE_EVERY = [6, 14];
+const WINDOW_CHANGE_NEAR = 45;
+const WINDOW_FADE = 1.5;
+
+/**
+ * Windows, bands, mouldings and pilasters on the tall walls of `level`.
+ * Returns the update that now and then lights or darkens a window near the courier.
+ */
+export function addArchitecture(level: Level, scene: THREE.Scene): (courier: { x: number; y: number; z: number }, time: number) => void {
   const stone: THREE.BufferGeometry[] = [];
   const lit: THREE.Matrix4[] = [];
   const dark: THREE.Matrix4[] = [];
@@ -301,14 +309,51 @@ export function addArchitecture(level: Level, scene: THREE.Scene): void {
     const merged = projectUVs(mergeGeometries(stone)!);
     scene.add(new THREE.Mesh(merged, weather(new THREE.MeshLambertMaterial({ color: STONE_COLOR, map: surfaceTexture("normal", 1) }))));
   }
-  const place = (list: THREE.Matrix4[], color: number) => {
-    if (list.length === 0) return;
-    const mesh = new THREE.InstancedMesh(glassGeo, new THREE.MeshBasicMaterial({ color }), list.length);
-    list.forEach((mat, i) => mesh.setMatrixAt(i, mat));
-    scene.add(mesh);
+  // All the glass in one mesh, each pane with its own colour, so any can change.
+  const panes = [...lit.map((m) => ({ m, on: true })), ...dark.map((m) => ({ m, on: false }))];
+  if (panes.length === 0) return () => {};
+  const glass = new THREE.InstancedMesh(glassGeo, new THREE.MeshBasicMaterial({ color: 0xffffff }), panes.length);
+  const litColor = new THREE.Color(WINDOW_LIT);
+  const darkColor = new THREE.Color(WINDOW_DARK);
+  const where = panes.map(({ m }) => new THREE.Vector3().setFromMatrixPosition(m));
+  panes.forEach(({ m, on }, i) => {
+    glass.setMatrixAt(i, m);
+    glass.setColorAt(i, on ? litColor : darkColor);
+  });
+  scene.add(glass);
+
+  const rnd = random(5150);
+  const mix = new THREE.Color();
+  let next = WINDOW_CHANGE_EVERY[0];
+  let fading: { i: number; to: boolean; start: number } | null = null;
+  const here = new THREE.Vector3();
+  return (courier, time) => {
+    if (fading) {
+      const t = Math.min(1, (time - fading.start) / WINDOW_FADE);
+      const [a, b] = fading.to ? [darkColor, litColor] : [litColor, darkColor];
+      glass.setColorAt(fading.i, mix.copy(a).lerp(b, t));
+      glass.instanceColor!.needsUpdate = true;
+      if (t >= 1) {
+        panes[fading.i].on = fading.to;
+        fading = null;
+      }
+      return;
+    }
+    if (time < next) return;
+    next = time + WINDOW_CHANGE_EVERY[0] + rnd() * (WINDOW_CHANGE_EVERY[1] - WINDOW_CHANGE_EVERY[0]);
+    // A window near the courier: lit ones are few, so darkening and lighting stay balanced.
+    here.set(courier.x, courier.y, courier.z);
+    const near: number[] = [];
+    where.forEach((p, i) => {
+      if (p.distanceTo(here) < WINDOW_CHANGE_NEAR) near.push(i);
+    });
+    if (near.length === 0) return;
+    const litNear = near.filter((i) => panes[i].on);
+    const wantLight = litNear.length === 0 || rnd() < 0.5;
+    const pool = wantLight ? near.filter((i) => !panes[i].on) : litNear;
+    if (pool.length === 0) return;
+    fading = { i: pool[Math.floor(rnd() * pool.length)], to: wantLight, start: time };
   };
-  place(lit, WINDOW_LIT);
-  place(dark, WINDOW_DARK);
 }
 
 /** Centre of the skyline ring, roughly the middle of the structure. */

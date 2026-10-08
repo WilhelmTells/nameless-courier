@@ -20,7 +20,7 @@ import { DEFAULT_LEVEL, LEVEL_ALIASES, levelFromSearch, teleportTargets, type Te
 import { createFigure } from "./render/figureRig.ts";
 import { createPogoRig } from "./render/pogoRig.ts";
 import { RetroPass } from "./render/retroPass.ts";
-import { addBeacon } from "./render/worldLook.ts";
+import { addArchitecture, addBeacon, addSkyline } from "./render/worldLook.ts";
 import { addDressing } from "./render/dressing.ts";
 import { addCrows } from "./render/crows.ts";
 import { ENDING, FIGURE_LINES, OPENING } from "./story.ts";
@@ -110,6 +110,8 @@ async function boot(): Promise<void> {
     scene.add(grid);
   }
   const updateBeacon = LEVEL.zones.length > 0 ? addBeacon(scene) : () => {};
+  if (LEVEL.zones.length > 0) addSkyline(scene);
+  const updateWindows = LEVEL.zones.length > 0 ? addArchitecture(LEVEL, scene) : () => {};
   const updateDressing = LEVEL.zones.length > 0 ? addDressing(LEVEL, scene) : () => {};
   const crows = LEVEL.zones.length > 0 ? addCrows(LEVEL, scene) : null;
 
@@ -444,6 +446,7 @@ async function boot(): Promise<void> {
     for (const f of figureRigs) f.update(worldTime());
     updateBeacon(time / 1000);
     updateDressing(time / 1000);
+    updateWindows(tip, time / 1000);
     crows?.update(tip, time / 1000, Math.min(0.1, Math.max(0, frameDt)));
     tip.set(
       pogo.prevPos.x + (pogo.pos.x - pogo.prevPos.x) * a,
