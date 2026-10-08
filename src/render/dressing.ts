@@ -114,6 +114,24 @@ const isPlainBox = (p: Piece) =>
 const MIN_WALL = 6;
 /** Water only runs within this distance of a rest spot, m. */
 const WATER_NEAR_REST = 18;
+/** Clearance above every surface: sideways, below and above its top, m. */
+const CLEAR_SIDE = 0.6;
+const CLEAR_BELOW = 0.3;
+const CLEAR_ABOVE = 3.2;
+/** Streams only land on the ground or on plateaus at least this big, m². */
+const WATER_MIN_AREA = 80;
+
+/** A piece's world bounding box, rotation included. */
+function pieceBox(p: Piece): THREE.Box3 {
+  const DEG = Math.PI / 180;
+  const turn = new THREE.Quaternion().setFromEuler(new THREE.Euler(p.rotation.x * DEG, p.rotation.y * DEG, p.rotation.z * DEG));
+  const box = new THREE.Box3();
+  for (const sx of [-0.5, 0.5]) for (const sy of [-0.5, 0.5]) for (const sz of [-0.5, 0.5]) {
+    box.expandByPoint(new THREE.Vector3(sx * p.size.x, sy * p.size.y, sz * p.size.z).applyQuaternion(turn).add(new THREE.Vector3(p.position.x, p.position.y, p.position.z)));
+  }
+  return box;
+}
+
 /** Streams per zone, so every zone has a little running water. */
 const STREAMS_PER_ZONE = 2;
 /** Falling drops, m/s². */
@@ -140,15 +158,45 @@ export function addDressing(level: Level, scene: THREE.Scene): (time: number) =>
   const one = new THREE.Vector3(1, 1, 1);
   const boxes = level.pieces.filter(isPlainBox);
 
-  /** Height of the highest surface below `p`, or the ground. */
-  const floorBelow = (p: THREE.Vector3) => {
-    let best = 0;
+  /** The highest surface below `p`: its height and its piece, or the ground (null). */
+  const surfaceBelow = (p: THREE.Vector3): { y: number; piece: Piece | null } => {
+    let best: { y: number; piece: Piece | null } = { y: 0, piece: null };
     for (const b of level.pieces) {
       const top = b.position.y + b.size.y / 2;
-      if (top >= p.y || top <= best) continue;
-      if (Math.abs(p.x - b.position.x) <= b.size.x / 2 && Math.abs(p.z - b.position.z) <= b.size.z / 2) best = top;
+      if (top >= p.y || top <= best.y) continue;
+      if (Math.abs(p.x - b.position.x) <= b.size.x / 2 && Math.abs(p.z - b.position.z) <= b.size.z / 2) best = { y: top, piece: b };
     }
     return best;
+  };
+
+  // Clearance: the space above every surface the courier can be on stays
+  // free of pipes and water, so nothing hangs across a path (user found a
+  // drain pipe and a stream crossing the narrow path before the first
+  // figure). Moving pieces get a wide margin for their travel.
+  const clearance = level.pieces.map((p) => {
+    const b = pieceBox(p);
+    const margin = p.motion.kind === "none" ? CLEAR_SIDE : CLEAR_SIDE + 4;
+    return {
+      piece: p,
+      box: new THREE.Box3(
+        new THREE.Vector3(b.min.x - margin, b.max.y - CLEAR_BELOW, b.min.z - margin),
+        new THREE.Vector3(b.max.x + margin, b.max.y + CLEAR_ABOVE + (margin - CLEAR_SIDE), b.max.z + margin),
+      ),
+    };
+  });
+  /**
+   * True when `box` reaches into the space above any surface (but
+   * `except`'s). A flush item (a drain pipe flat on the wall) may stand on a
+   * surface beside the wall; it only counts when it passes down through one.
+   */
+  const blocked = (box: THREE.Box3, except: Piece | null = null, flush = false) =>
+    clearance.some((c) => c.piece !== except && c.box.intersectsBox(box) && (!flush || box.min.y < c.box.min.y - 0.05));
+  /** Water may only land on the ground or a big plateau, and must not fall across another surface. */
+  const waterPath = (mouth: THREE.Vector3) => {
+    const floor = surfaceBelow(mouth);
+    const big = floor.piece === null || floor.piece.size.x * floor.piece.size.z >= WATER_MIN_AREA;
+    const column = new THREE.Box3(new THREE.Vector3(mouth.x - 0.1, floor.y + 0.05, mouth.z - 0.1), new THREE.Vector3(mouth.x + 0.1, mouth.y, mouth.z + 0.1));
+    return { floor: floor.y, clear: !blocked(column, floor.piece), big };
   };
   const nearRest = (p: THREE.Vector3) =>
     level.restSpots.some((r) => {
@@ -164,8 +212,10 @@ export function addDressing(level: Level, scene: THREE.Scene): (time: number) =>
   /** Water falling from `mouth` to the next surface below, splashing there; only near rest spots, two per zone. */
   const pour = (mouth: THREE.Vector3): boolean => {
     if ((streamsIn[zone] ?? 0) >= STREAMS_PER_ZONE || !nearRest(mouth)) return false;
+    const path = waterPath(mouth);
+    if (!path.clear || !path.big) return false;
     streamsIn[zone] = (streamsIn[zone] ?? 0) + 1;
-    const floor = floorBelow(mouth);
+    const floor = path.floor;
     const drop = mouth.y - floor;
     for (const spin of [0, Math.PI / 2]) {
       const sheet = new THREE.PlaneGeometry(0.07, drop).toNonIndexed();
@@ -183,7 +233,9 @@ export function addDressing(level: Level, scene: THREE.Scene): (time: number) =>
   let dripRnd = random(1);
   const drip = (mouth: THREE.Vector3, chance: number) => {
     if (dripRnd() >= chance) return;
-    const floor = floorBelow(mouth);
+    const path = waterPath(mouth);
+    if (!path.clear) return;
+    const floor = path.floor;
     const fall = Math.sqrt((2 * (mouth.y - floor)) / DRIP_GRAVITY);
     const period = Math.max(fall + SPLASH_TIME + 0.2, 0.9 + dripRnd() * 2.2);
     drips.push({ x: mouth.x, y: mouth.y, z: mouth.z, floor, fall, period, phase: dripRnd() * period });
@@ -211,8 +263,17 @@ export function addDressing(level: Level, scene: THREE.Scene): (time: number) =>
       const q = new THREE.Quaternion().setFromAxisAngle(up, w.yaw);
       const out = new THREE.Vector3(0, 0, 1).applyQuaternion(q);
       const at = (along: number, y: number, off = 0) => new THREE.Vector3(w.x ?? along, y, w.z ?? along).addScaledVector(out, off);
+      // Parts of one item are gathered, then kept only if none reaches into a clearance.
+      let pending: [THREE.BufferGeometry[], THREE.BufferGeometry][] = [];
       const put = (list: THREE.BufferGeometry[], geo: THREE.BufferGeometry, pos: THREE.Vector3, turn = q) =>
-        list.push(geo.applyMatrix4(new THREE.Matrix4().compose(pos, turn, one)));
+        pending.push([list, geo.applyMatrix4(new THREE.Matrix4().compose(pos, turn, one))]);
+      /** Keeps the gathered parts: "strict" when nothing may reach a clearance, "flush" for pipes flat on the wall, "none" for flat things. */
+      const commit = (check: "strict" | "flush" | "none" = "strict"): boolean => {
+        const ok = check === "none" || pending.every(([, g]) => (g.computeBoundingBox(), !blocked(g.boundingBox!, null, check === "flush")));
+        if (ok) for (const [list, g] of pending) list.push(g);
+        pending = [];
+        return ok;
+      };
       // Away from the corners, where pilasters and neighbours meet.
       const along = () => w.from + 1.2 + rnd() * (length - 2.4);
 
@@ -230,8 +291,8 @@ export function addDressing(level: Level, scene: THREE.Scene): (time: number) =>
           const end = new THREE.CylinderGeometry(0.07, 0.07, 0.35, 6).toNonIndexed().rotateX(0.7);
           put(pipes, end, at(a, bottom - 0.12, 0.24));
           put(stains, new THREE.PlaneGeometry(0.5, Math.min(6, bottom - y0)).toNonIndexed(), at(a, bottom - Math.min(6, bottom - y0) / 2, 0.02));
-          drip(at(a, bottom - 0.25, 0.34), 0.7);
         }
+        if (commit(broken ? "strict" : "flush") && broken) drip(at(a, bottom - 0.25, 0.34), 0.7);
       }
 
       // A broken outlet sticking out of the wall: short, round, with a flange.
@@ -241,10 +302,13 @@ export function addDressing(level: Level, scene: THREE.Scene): (time: number) =>
         const turn = q.clone().multiply(new THREE.Quaternion().setFromAxisAngle(new THREE.Vector3(1, 0, 0), Math.PI / 2 - 0.15));
         put(pipes, new THREE.CylinderGeometry(0.1, 0.1, 0.38, 7).toNonIndexed(), at(a, y, 0.19), turn);
         put(pipes, new THREE.CylinderGeometry(0.16, 0.16, 0.04, 7).toNonIndexed(), at(a, y, 0.02), turn);
-        if (pour(at(a, y - 0.03, 0.38))) {
-          put(stains, new THREE.PlaneGeometry(0.6, Math.min(5, y - y0)).toNonIndexed(), at(a, y - Math.min(5, y - y0) / 2, 0.02));
-        } else {
-          drip(at(a, y - 0.05, 0.36), 0.6);
+        if (commit()) {
+          if (pour(at(a, y - 0.03, 0.38))) {
+            put(stains, new THREE.PlaneGeometry(0.6, Math.min(5, y - y0)).toNonIndexed(), at(a, y - Math.min(5, y - y0) / 2, 0.02));
+            commit("none");
+          } else {
+            drip(at(a, y - 0.05, 0.36), 0.6);
+          }
         }
       }
 
@@ -264,6 +328,7 @@ export function addDressing(level: Level, scene: THREE.Scene): (time: number) =>
         for (let y = y0 + 0.8; y < top; y += 2.5) put(pipes, new THREE.BoxGeometry(0.18, 0.05, 0.08 + r).toNonIndexed(), at(a, y, (0.08 + r) / 2));
         // An elbow into the wall at the top.
         put(pipes, new THREE.CylinderGeometry(r, r, 0.08 + r, 6).toNonIndexed().rotateX(Math.PI / 2), at(a, top, (0.08 + r) / 2));
+        commit("flush");
       }
       // Runs along the wall between floors, on brackets.
       if (more() < 0.75) {
@@ -278,6 +343,7 @@ export function addDressing(level: Level, scene: THREE.Scene): (time: number) =>
           for (let d = -len / 2 + 0.4; d < len / 2; d += 1.6) put(pipes, new THREE.BoxGeometry(0.06, 0.18, 0.1 + r).toNonIndexed(), at(a + d, y, (0.1 + r) / 2));
           // Where a run ends it turns into the wall.
           for (const end of [-1, 1]) put(pipes, new THREE.CylinderGeometry(r, r, 0.1 + r, 6).toNonIndexed().rotateX(Math.PI / 2), at(a + (end * len) / 2, y, (0.1 + r) / 2));
+          commit();
         }
       }
       // Pipes sticking straight out: thin, ending in an elbow bending down or a broken end.
@@ -290,16 +356,18 @@ export function addDressing(level: Level, scene: THREE.Scene): (time: number) =>
         const r = 0.05 + more() * 0.04;
         put(pipes, new THREE.CylinderGeometry(r, r, len, 6).toNonIndexed().rotateX(Math.PI / 2), at(a, y, len / 2));
         put(pipes, new THREE.CylinderGeometry(r * 1.7, r * 1.7, 0.04, 6).toNonIndexed().rotateX(Math.PI / 2), at(a, y, 0.02));
-        if (more() < 0.55) {
+        const elbow = more() < 0.55;
+        const wantPour = more() < (elbow ? 0.4 : 0.3);
+        if (elbow) {
           // Elbow down, open at the bottom.
           put(pipes, new THREE.CylinderGeometry(r, r, 0.4, 6).toNonIndexed(), at(a, y - 0.2 + r, len - r));
-          const mouth = at(a, y - 0.4 + r, len - r);
-          if (!(more() < 0.4 && pour(mouth))) drip(mouth, 0.5);
         } else {
           // Snapped off: a short piece hanging at an angle from the end.
           put(pipes, new THREE.CylinderGeometry(r, r, 0.25, 6).toNonIndexed().rotateX(Math.PI / 2 + 0.6), at(a, y - 0.06, len + 0.08));
-          const mouth = at(a, y - 0.12, len + 0.18);
-          if (!(more() < 0.3 && pour(mouth))) drip(mouth, 0.5);
+        }
+        if (commit()) {
+          const mouth = elbow ? at(a, y - 0.4 + r, len - r) : at(a, y - 0.12, len + 0.18);
+          if (!(wantPour && pour(mouth))) drip(mouth, 0.5);
         }
       }
 
@@ -313,6 +381,7 @@ export function addDressing(level: Level, scene: THREE.Scene): (time: number) =>
         const top = fromTop ? y1 - 0.12 : y0 + Math.floor(rnd() * Math.max(1, (y1 - y0) / 5)) * 5 + 0.85;
         if (top - hang < y0) continue;
         put(leaves, new THREE.PlaneGeometry(width, hang).toNonIndexed(), at(a, top - hang / 2, 0.04 + i * 0.01));
+        commit("none");
       }
 
       // Cracks, more of them high up where the structure gives way.
@@ -323,6 +392,7 @@ export function addDressing(level: Level, scene: THREE.Scene): (time: number) =>
         const geo = new THREE.PlaneGeometry(size, size).toNonIndexed();
         geo.rotateZ(Math.floor(rnd() * 4) * (Math.PI / 2));
         put(cracks, geo, at(along(), y + size / 2, 0.012));
+        commit("none");
       }
     }
   }
