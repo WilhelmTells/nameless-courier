@@ -26,7 +26,10 @@ export interface Piece {
   size: Vec3;
   surface: Surface;
   motion: Motion;
-  /** Look only: "crate", "barrel", "stone" or "water" for props; plain otherwise. */
+  /**
+   * Look only: "crate", "barrel", "stone", "water" or "iron" for props and
+   * the surroundings; "invisible" has a collider but nothing is drawn.
+   */
   material?: string;
 }
 

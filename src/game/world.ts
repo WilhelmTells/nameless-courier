@@ -221,6 +221,19 @@ export function buildLevel(level: Level, scene: THREE.Scene, physics: RAPIER.Wor
     );
 
   for (const piece of level.pieces) {
+    if (piece.material === "invisible") {
+      // A boundary: felt, never seen.
+      const q = new THREE.Quaternion().setFromEuler(new THREE.Euler(piece.rotation.x * DEG, piece.rotation.y * DEG, piece.rotation.z * DEG));
+      built.add(
+        physics.createCollider(
+          colliderFor(piece)
+            .setTranslation(piece.position.x, piece.position.y, piece.position.z)
+            .setRotation({ x: q.x, y: q.y, z: q.z, w: q.w }),
+        ),
+        piece,
+      );
+      continue;
+    }
     const { variant, offset } = pieceLook(piece.id);
     const look = lookFor(piece.surface, variant, piece.material);
     // Crates and barrels centre one tile on each face.

@@ -9,6 +9,7 @@
 import * as THREE from "three";
 import { mergeGeometries } from "three/examples/jsm/utils/BufferGeometryUtils.js";
 import type { Level, Piece } from "../levels/types.ts";
+import { deadLantern, lantern } from "./lantern.ts";
 
 /** Fixed pseudo-random numbers, so the dressing is the same every time. */
 function random(seed: number): () => number {
@@ -395,6 +396,14 @@ export function addDressing(level: Level, scene: THREE.Scene): (time: number) =>
         commit("none");
       }
     }
+  }
+
+  // Lamp posts: an iron arm and a lantern on top; the "-lit" ones still burn.
+  for (const post of level.pieces.filter((p) => p.id.startsWith("lamp-"))) {
+    const top = post.position.y + post.size.y / 2;
+    const head = post.id.includes("-lit") ? lantern(9, 3.5) : deadLantern();
+    head.position.set(post.position.x, top - 0.05, post.position.z);
+    scene.add(head);
   }
 
   // Fountains: the bowl overflows in a thin curtain into the basin, and water

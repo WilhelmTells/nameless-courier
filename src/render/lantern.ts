@@ -61,3 +61,15 @@ export function lantern(reach = 7, intensity = 3): THREE.Group {
   g.add(light);
   return g;
 }
+
+/** A lantern that has gone out: the cage and a dark core, no light. */
+export function deadLantern(): THREE.Group {
+  const g = lantern();
+  for (const child of [...g.children]) {
+    if (child instanceof THREE.PointLight || child instanceof THREE.Sprite) g.remove(child);
+    if (child instanceof THREE.Mesh && child.material === flame) child.material = dark;
+  }
+  return g;
+}
+
+const dark = new THREE.MeshLambertMaterial({ color: 0x2a2620 });

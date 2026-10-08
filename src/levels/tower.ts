@@ -8,6 +8,7 @@ import { zone3 } from "./zone3.ts";
 import { zone4 } from "./zone4.ts";
 import { zone5 } from "./zone5.ts";
 import { zone6 } from "./zone6.ts";
+import { surroundings } from "./surroundings.ts";
 
 const zones: readonly Zone[] = [zone1, zone2, zone3, zone4, zone5, zone6];
 
@@ -15,7 +16,8 @@ export const tower: Level = {
   id: "tower",
   name: "The structure",
   start: zone1.start,
-  pieces: zones.flatMap((z) => z.pieces),
+  // The zones, then the plaza, canal and ruined city around them.
+  pieces: [...zones.flatMap((z) => z.pieces), ...surroundings],
   restSpots: zones.flatMap((z) => z.restSpots),
   figures: zones.flatMap((z) => z.figures),
   zones,

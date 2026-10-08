@@ -2,6 +2,7 @@ import { test } from "node:test";
 import assert from "node:assert/strict";
 import { DEFAULT_LEVEL, LEVELS, levelFromSearch, teleportTargets } from "../src/levels/index.ts";
 import { tower } from "../src/levels/tower.ts";
+import { surroundings } from "../src/levels/surroundings.ts";
 import { FIGURE_LINES } from "../src/story.ts";
 
 test("level comes from the URL, the structure by default", () => {
@@ -17,7 +18,7 @@ test("the structure is its zones, in order, starting in Zone 1", () => {
   const tower = LEVELS.tower;
   assert.equal(tower.zones[0].id, "zone1");
   assert.deepEqual(tower.start, tower.zones[0].start);
-  assert.equal(tower.pieces.length, tower.zones.reduce((n, z) => n + z.pieces.length, 0));
+  assert.equal(tower.pieces.length, tower.zones.reduce((n, z) => n + z.pieces.length, 0) + surroundings.length);
   assert.equal(tower.restSpots.length, tower.zones.reduce((n, z) => n + z.restSpots.length, 0));
 });
 
@@ -94,4 +95,22 @@ test("seven figures, each with its own lines, standing on a level surface", () =
     );
     assert.ok(floor, `${f.id} stands on a piece`);
   }
+});
+
+test("the ruins around the structure stay at least 26 m from every zone", () => {
+  const zonePieces = tower.zones.flatMap((z) => z.pieces);
+  const ruins = surroundings.filter((p) => p.id.startsWith("ruin"));
+  assert.ok(ruins.length > 20);
+  for (const r of ruins) {
+    for (const q of zonePieces) {
+      const dx = Math.max(0, Math.abs(r.position.x - q.position.x) - (r.size.x + q.size.x) / 2);
+      const dz = Math.max(0, Math.abs(r.position.z - q.position.z) - (r.size.z + q.size.z) / 2);
+      assert.ok(Math.hypot(dx, dz) >= 26, `${r.id} is ${Math.hypot(dx, dz).toFixed(1)} m from ${q.id}`);
+    }
+  }
+});
+
+test("piece ids are unique", () => {
+  const ids = tower.pieces.map((p) => p.id);
+  assert.equal(new Set(ids).size, ids.length);
 });

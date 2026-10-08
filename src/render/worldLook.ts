@@ -376,13 +376,6 @@ export function addBeacon(scene: THREE.Scene): (time: number) => void {
   };
 }
 
-/** The ground around the structure: dark concrete, fading into the fog. */
-export function groundMaterial(): THREE.Material {
-  const map = surfaceTexture("normal").clone();
-  map.repeat.set(250, 250);
-  map.needsUpdate = true;
-  return new THREE.MeshLambertMaterial({ color: 0x5a5c60, map });
-}
 
 /** Faces pointing up at least this much (cosine) count as landable for the trim. */
 const TRIM_UP = 0.7;
@@ -492,7 +485,7 @@ function barrelTexture(): THREE.Texture {
   }, 71);
 }
 
-export type PropMaterial = "crate" | "barrel" | "stone" | "water";
+export type PropMaterial = "crate" | "barrel" | "stone" | "water" | "iron";
 
 /** The look of a prop (level data `material`), and its texture tile size in metres. */
 export function propLook(material: PropMaterial): { mesh: THREE.Material; tile: number } {
@@ -505,5 +498,7 @@ export function propLook(material: PropMaterial): { mesh: THREE.Material; tile: 
       return { mesh: weather(new THREE.MeshLambertMaterial({ color: 0xa8a6a0, map: surfaceTexture("normal", 2) })), tile: 2 };
     case "water":
       return { mesh: new THREE.MeshPhongMaterial({ color: 0x24323b, specular: 0x7c8c98, shininess: 90 }), tile: TILE_METRES };
+    case "iron":
+      return { mesh: new THREE.MeshLambertMaterial({ color: 0x1e1f22 }), tile: TILE_METRES };
   }
 }

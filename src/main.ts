@@ -20,7 +20,7 @@ import { DEFAULT_LEVEL, LEVEL_ALIASES, levelFromSearch, teleportTargets, type Te
 import { createFigure } from "./render/figureRig.ts";
 import { createPogoRig } from "./render/pogoRig.ts";
 import { RetroPass } from "./render/retroPass.ts";
-import { addBeacon, groundMaterial } from "./render/worldLook.ts";
+import { addBeacon } from "./render/worldLook.ts";
 import { addDressing } from "./render/dressing.ts";
 import { ENDING, FIGURE_LINES, OPENING } from "./story.ts";
 import { Screens } from "./ui/screens.ts";
@@ -73,9 +73,13 @@ async function boot(): Promise<void> {
   await RAPIER.init();
   const physics = new RAPIER.World({ x: 0, y: -pogoConfig.gravity, z: 0 });
   physics.timestep = SIM_DT;
-  physics.createCollider(
-    RAPIER.ColliderDesc.cuboid(FLOOR_SIZE / 2, 0.5, FLOOR_SIZE / 2).setTranslation(0, -0.5, 0),
-  );
+  // Test levels stand on a plain floor; the structure brings its own ground (plaza, water).
+  const testLevel = LEVEL.zones.length === 0;
+  if (testLevel) {
+    physics.createCollider(
+      RAPIER.ColliderDesc.cuboid(FLOOR_SIZE / 2, 0.5, FLOOR_SIZE / 2).setTranslation(0, -0.5, 0),
+    );
+  }
   const canvas = document.querySelector<HTMLCanvasElement>("#game")!;
   const renderer = new THREE.WebGLRenderer({ canvas, antialias: true });
   renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
@@ -95,15 +99,11 @@ async function boot(): Promise<void> {
   moon.position.set(-6, 9, -5);
   scene.add(moon);
 
-  const floor = new THREE.Mesh(
-    new THREE.PlaneGeometry(FLOOR_SIZE, FLOOR_SIZE),
-    LEVEL.zones.length > 0 ? groundMaterial() : new THREE.MeshLambertMaterial({ color: 0x77777a }),
-  );
-  floor.rotation.x = -Math.PI / 2;
-  scene.add(floor);
-
-  // Test levels keep a grid on the ground for judging distances.
-  if (LEVEL.zones.length === 0) {
+  // Test levels keep a plain floor with a grid for judging distances.
+  if (testLevel) {
+    const floor = new THREE.Mesh(new THREE.PlaneGeometry(FLOOR_SIZE, FLOOR_SIZE), new THREE.MeshLambertMaterial({ color: 0x77777a }));
+    floor.rotation.x = -Math.PI / 2;
+    scene.add(floor);
     const grid = new THREE.GridHelper(GRID_SIZE, GRID_SIZE, 0x505055, 0x5c5c60);
     grid.position.y = 0.001;
     scene.add(grid);
