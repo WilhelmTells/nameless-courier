@@ -5,6 +5,7 @@
 
 import * as THREE from "three";
 import type { Level, Piece, Surface } from "../levels/types.ts";
+import { mergeGeometries } from "three/examples/jsm/utils/BufferGeometryUtils.js";
 import { glow } from "./lantern.ts";
 
 /** One texture tile covers this many metres. */
@@ -197,82 +198,112 @@ export function projectUVs(geo: THREE.BufferGeometry, offset: [number, number] =
   return g;
 }
 
-// Windows: arched, 0.9 × 1.7 m, on a grid over the tall walls.
+// Architecture on the tall walls: pointed-arch windows in floors (a frame
+// standing out 10 cm, a sill, dark or lit glass), a band along each floor, a
+// moulding below the top, and shallow pilasters. Nothing sticks out more
+// than 12 cm, so none of it reads as a ledge to land on.
 const WINDOW_W = 0.9;
 const WINDOW_H = 1.7;
+const FRAME = 0.15;
+const FRAME_DEPTH = 0.1;
 const WINDOW_GAP_X = 3.4;
-const WINDOW_GAP_Y = 5;
-/** Walls lower or narrower than this get no windows, m. */
+/** Floors are this tall everywhere, so window rows line up across buildings, m. */
+const FLOOR_HEIGHT = 5;
+/** Walls lower or narrower than this get no architecture, m. */
 const WINDOW_MIN_WALL = 6;
+/** Share of window openings with a lit window; the rest are dark, a few bricked up. */
 const LIT_SHARE = 0.1;
-const DARK_SHARE = 0.4;
+const BRICKED_SHARE = 0.12;
 const WINDOW_LIT = 0xb3925a;
 const WINDOW_DARK = 0x0a0a0c;
+const STONE_COLOR = 0x9a9995;
 
-function archShape(): THREE.Shape {
-  const s = new THREE.Shape();
-  const hw = WINDOW_W / 2;
-  const spring = WINDOW_H - hw * 1.2;
-  s.moveTo(-hw, 0);
-  s.lineTo(hw, 0);
-  s.lineTo(hw, spring);
-  // A pointed arch: two arcs meeting at the top.
-  s.quadraticCurveTo(hw, spring + hw * 0.8, 0, WINDOW_H);
-  s.quadraticCurveTo(-hw, spring + hw * 0.8, -hw, spring);
-  s.lineTo(-hw, 0);
-  return s;
+/** A pointed arch `w` wide and `h` tall, standing on y = `y0`. */
+function arch(w: number, h: number, y0 = 0, path: THREE.Path = new THREE.Shape()): THREE.Path {
+  const hw = w / 2;
+  const spring = y0 + h - hw * 1.2;
+  path.moveTo(-hw, y0);
+  path.lineTo(hw, y0);
+  path.lineTo(hw, spring);
+  path.quadraticCurveTo(hw, spring + hw * 0.8, 0, y0 + h);
+  path.quadraticCurveTo(-hw, spring + hw * 0.8, -hw, spring);
+  path.lineTo(-hw, y0);
+  return path;
+}
+
+/** The window's stone: an arched frame around the opening and a sill, facing +Z, on y = 0. */
+function windowStone(): THREE.BufferGeometry {
+  const outer = arch(WINDOW_W + 2 * FRAME, WINDOW_H + 2 * FRAME, -FRAME) as THREE.Shape;
+  outer.holes.push(arch(WINDOW_W, WINDOW_H));
+  const frame = new THREE.ExtrudeGeometry(outer, { depth: FRAME_DEPTH, bevelEnabled: false, curveSegments: 6 });
+  const sill = new THREE.BoxGeometry(WINDOW_W + 2 * FRAME + 0.16, 0.08, 0.12).translate(0, -FRAME - 0.04, 0.06);
+  return mergeGeometries([frame.toNonIndexed(), sill.toNonIndexed()])!;
 }
 
 const isPlainBox = (p: Piece) =>
   p.shape === "box" && p.motion.kind === "none" && p.rotation.x === 0 && p.rotation.y === 0 && p.rotation.z === 0;
 
-/** Arched windows on the tall walls of `level`, some lit, the rest dark. */
-export function addWindows(level: Level, scene: THREE.Scene): void {
-  const shape = new THREE.ShapeGeometry(archShape());
+/** Windows, bands, mouldings and pilasters on the tall walls of `level`. */
+export function addArchitecture(level: Level, scene: THREE.Scene): void {
+  const stone: THREE.BufferGeometry[] = [];
   const lit: THREE.Matrix4[] = [];
   const dark: THREE.Matrix4[] = [];
-  const m = new THREE.Matrix4();
-  const q = new THREE.Quaternion();
+  const windowGeo = windowStone();
+  const glassGeo = new THREE.ShapeGeometry(arch(WINDOW_W, WINDOW_H) as THREE.Shape, 6);
   const up = new THREE.Vector3(0, 1, 0);
   const one = new THREE.Vector3(1, 1, 1);
 
   for (const p of level.pieces) {
     if (!isPlainBox(p) || p.size.y < WINDOW_MIN_WALL) continue;
-    const rnd = random(hash(p.id));
+    const rnd = random(hash(p.id) + 1);
     const x0 = p.position.x - p.size.x / 2, x1 = p.position.x + p.size.x / 2;
     const z0 = p.position.z - p.size.z / 2, z1 = p.position.z + p.size.z / 2;
     const y0 = p.position.y - p.size.y / 2, y1 = p.position.y + p.size.y / 2;
-    // Each wall: its outward direction, where it lies, and the axis along it.
+    // Each wall: the turn that faces +Z outward, where it lies, and its extent along it.
     const walls = [
-      { yaw: Math.PI / 2, x: x1 + 0.03, z: null, from: z0, to: z1 },
-      { yaw: -Math.PI / 2, x: x0 - 0.03, z: null, from: z0, to: z1 },
-      { yaw: 0, x: null, z: z1 + 0.03, from: x0, to: x1 },
-      { yaw: Math.PI, x: null, z: z0 - 0.03, from: x0, to: x1 },
+      { yaw: Math.PI / 2, x: x1, z: null, from: z0, to: z1 },
+      { yaw: -Math.PI / 2, x: x0, z: null, from: z0, to: z1 },
+      { yaw: 0, x: null, z: z1, from: x0, to: x1 },
+      { yaw: Math.PI, x: null, z: z0, from: x0, to: x1 },
     ];
     for (const w of walls) {
       const length = w.to - w.from;
       if (length < WINDOW_MIN_WALL) continue;
+      const q = new THREE.Quaternion().setFromAxisAngle(up, w.yaw);
+      const at = (along: number, y: number) => new THREE.Vector3(w.x ?? along, y, w.z ?? along);
+      const put = (geo: THREE.BufferGeometry, along: number, y: number) =>
+        stone.push(geo.clone().applyMatrix4(new THREE.Matrix4().compose(at(along, y), q, one)));
+      const mid = (w.from + w.to) / 2;
+
+      // A band below each row of windows, and a moulding below the top.
+      const band = new THREE.BoxGeometry(length, 0.22, 0.06).translate(0, 0, 0.03).toNonIndexed();
+      for (let y = Math.ceil((y0 + 1) / FLOOR_HEIGHT) * FLOOR_HEIGHT; y < y1 - 1.5; y += FLOOR_HEIGHT) put(band, mid, y);
+      if (p.size.y >= 8) put(new THREE.BoxGeometry(length, 0.32, 0.1).translate(0, 0, 0.05).toNonIndexed(), mid, y1 - 0.8);
+
+      // Windows on a grid of floors and bays; pilasters between every second bay.
       const cols = Math.floor((length - 1) / WINDOW_GAP_X);
-      const rows = Math.floor((p.size.y - 2) / WINDOW_GAP_Y);
       const startAlong = w.from + (length - (cols - 1) * WINDOW_GAP_X) / 2;
-      q.setFromAxisAngle(up, w.yaw);
-      for (let r = 0; r < rows; r++) {
+      const pilaster = new THREE.BoxGeometry(0.45, p.size.y - 1.2, 0.08).translate(0, 0, 0.04).toNonIndexed();
+      for (let c = 1; c < cols; c += 2) put(pilaster, startAlong + (c - 0.5) * WINDOW_GAP_X, (y0 + y1 - 1.2) / 2);
+      for (let y = Math.ceil((y0 + 1) / FLOOR_HEIGHT) * FLOOR_HEIGHT + 1; y + WINDOW_H + 1 < y1; y += FLOOR_HEIGHT) {
         for (let c = 0; c < cols; c++) {
-          const roll = rnd();
-          const list = roll < LIT_SHARE ? lit : roll < LIT_SHARE + DARK_SHARE ? dark : null;
-          if (!list) continue;
           const along = startAlong + c * WINDOW_GAP_X;
-          const y = y0 + 1.5 + r * WINDOW_GAP_Y;
-          if (y + WINDOW_H > y1 - 0.5) continue;
-          const pos = new THREE.Vector3(w.x ?? along, y, w.z ?? along);
-          list.push(m.clone().compose(pos, q, one));
+          const roll = rnd();
+          if (roll < BRICKED_SHARE) continue;
+          put(windowGeo, along, y);
+          const glass = new THREE.Matrix4().compose(at(along, y).addScaledVector(new THREE.Vector3(0, 0, 1).applyQuaternion(q), 0.015), q, one);
+          (roll < BRICKED_SHARE + LIT_SHARE ? lit : dark).push(glass);
         }
       }
     }
   }
+  if (stone.length > 0) {
+    const merged = projectUVs(mergeGeometries(stone)!);
+    scene.add(new THREE.Mesh(merged, weather(new THREE.MeshLambertMaterial({ color: STONE_COLOR, map: surfaceTexture("normal", 1) }))));
+  }
   const place = (list: THREE.Matrix4[], color: number) => {
     if (list.length === 0) return;
-    const mesh = new THREE.InstancedMesh(shape, new THREE.MeshBasicMaterial({ color }), list.length);
+    const mesh = new THREE.InstancedMesh(glassGeo, new THREE.MeshBasicMaterial({ color }), list.length);
     list.forEach((mat, i) => mesh.setMatrixAt(i, mat));
     scene.add(mesh);
   };

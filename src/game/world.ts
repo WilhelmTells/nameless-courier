@@ -6,7 +6,7 @@ import { poseAt, velocityAt, type Pose } from "../core/motionCore.ts";
 import type { Vec3 } from "../core/pogoCore.ts";
 import type { Level, Piece, Surface } from "../levels/types.ts";
 import type { LevelInfo } from "./pogo.ts";
-import { addSkyline, addWindows, pieceLook, projectUVs, surfaceTexture, trimGeometry, weather } from "../render/worldLook.ts";
+import { addArchitecture, addSkyline, pieceLook, projectUVs, surfaceTexture, trimGeometry, weather } from "../render/worldLook.ts";
 
 const PIECE_COLOR = 0x8a8a8d;
 /** Lighter edges keep platform borders readable. */
@@ -244,7 +244,7 @@ export function buildLevel(level: Level, scene: THREE.Scene, physics: RAPIER.Wor
   }
   markRestSpots(level, scene);
   if (level.zones.length > 0) {
-    addWindows(level, scene);
+    addArchitecture(level, scene);
     addSkyline(scene);
   }
   built.place(0);
