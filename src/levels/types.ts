@@ -41,7 +41,7 @@ export interface RestSpot {
   max: Vec3;
 }
 
-export type FigurePose = "stand" | "sit" | "hunch";
+export type FigurePose = "stand" | "sit" | "hunch" | "hood";
 
 /**
  * One of the figures: a silent presence that speaks when the courier comes

@@ -115,7 +115,8 @@ async function boot(): Promise<void> {
   const marker = new LandingMarker(physics);
   scene.add(marker.group);
 
-  for (const f of LEVEL.figures) scene.add(createFigure(f));
+  const figureRigs = LEVEL.figures.map(createFigure);
+  for (const f of figureRigs) scene.add(f.group);
 
   let stats = newStats(START.y);
   const saved = SAVES ? parseRun(readStorage(RUN_KEY), LEVEL.id, LEVEL_ALIASES) : null;
@@ -430,6 +431,7 @@ async function boot(): Promise<void> {
     // Interpolate between the last two simulation states.
     const a = loop.alpha;
     levelWorld.render(worldTime() - SIM_DT * (1 - a));
+    for (const f of figureRigs) f.update(worldTime());
     tip.set(
       pogo.prevPos.x + (pogo.pos.x - pogo.prevPos.x) * a,
       pogo.prevPos.y + (pogo.pos.y - pogo.prevPos.y) * a,
