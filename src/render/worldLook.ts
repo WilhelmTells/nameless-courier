@@ -372,12 +372,12 @@ const SKYLINE_COLOR = 0x15181d;
 
 /**
  * Towers and spires in a ring far beyond the fog, drawn without fog as dark
- * silhouettes with a few warm windows, and a pale moon low over them.
+ * silhouettes, and a pale moon low over them. (Their lit windows looked like
+ * dots floating in the fog, so they have none.)
  */
 export function addSkyline(scene: THREE.Scene): void {
   const rnd = random(99);
   const mat = new THREE.MeshBasicMaterial({ color: SKYLINE_COLOR, fog: false });
-  const windows: number[] = [];
   const group = new THREE.Group();
   for (let i = 0; i < 46; i++) {
     const a = (i / 46) * Math.PI * 2 + rnd() * 0.08;
@@ -396,16 +396,7 @@ export function addSkyline(scene: THREE.Scene): void {
       spire.rotation.y = a + Math.PI / 4;
       group.add(spire);
     }
-    // A few lit windows on the side facing the structure.
-    for (let k = 0; k < 6; k++) {
-      if (rnd() < 0.5) continue;
-      const along = (rnd() - 0.5) * w * 0.8;
-      const y = 10 + rnd() * (h - 30);
-      windows.push(x - Math.sin(a) * (w / 2 + 0.5) + Math.cos(a) * along, y, z - Math.cos(a) * (w / 2 + 0.5) - Math.sin(a) * along);
-    }
   }
-  const points = new THREE.BufferGeometry().setAttribute("position", new THREE.Float32BufferAttribute(windows, 3));
-  group.add(new THREE.Points(points, new THREE.PointsMaterial({ color: 0x9c7a4c, size: 2, sizeAttenuation: false, fog: false })));
   const moon = glow(0xe6e2d6, 40, 0.5);
   (moon.material as THREE.SpriteMaterial).fog = false;
   moon.position.set(SKYLINE_CENTRE.x - 120, 110, SKYLINE_CENTRE.z - 110);

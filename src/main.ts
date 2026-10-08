@@ -462,7 +462,7 @@ async function boot(): Promise<void> {
     updateWindows(tip, time / 1000);
     crows?.update(tip, time / 1000, Math.min(0.1, Math.max(0, frameDt)));
     updateAtmosphere(tip, time / 1000, Math.min(0.1, Math.max(0, frameDt)));
-    updateNightLife(time / 1000);
+    updateNightLife(time / 1000, tip);
     tip.set(
       pogo.prevPos.x + (pogo.pos.x - pogo.prevPos.x) * a,
       pogo.prevPos.y + (pogo.pos.y - pogo.prevPos.y) * a,

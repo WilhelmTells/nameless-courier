@@ -43,7 +43,11 @@ const fragmentShader = /* glsl */ `
     // Dither in display space, where the steps are even to the eye.
     vec3 c = toSRGB(clamp(texture2D(tColor, uv).rgb, 0.0, 1.0));
     float steps = levels - 1.0;
-    c = floor(c * steps + bayer(px)) / steps;
+    // Only the brightness is stepped and dithered, so the colour stays put:
+    // stepping each channel alone sprinkled grey fog with coloured pixels.
+    float l = max(max(c.r, c.g), c.b);
+    float stepped = floor(l * steps + bayer(px)) / steps;
+    c *= l > 0.0001 ? stepped / l : 0.0;
     gl_FragColor = vec4(clamp(c, 0.0, 1.0), 1.0);
     gl_FragDepth = texture2D(tDepth, uv).r;
   }

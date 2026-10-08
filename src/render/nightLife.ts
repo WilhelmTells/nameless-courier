@@ -15,6 +15,8 @@ function random(seed: number): () => number {
 }
 
 const MOTHS_PER_LANTERN = 3;
+/** Moths show only within this distance of the courier, m. */
+const MOTHS_SEEN = 7;
 /** Seconds between flashes of lightning. */
 const LIGHTNING_EVERY = [45, 110];
 /** A flash: two quick strokes, then a fade, s. */
@@ -27,7 +29,7 @@ export function addNightLife(
   scene: THREE.Scene,
   sky: THREE.HemisphereLight,
   fog: THREE.Color,
-): (time: number) => void {
+): (time: number, courier: THREE.Vector3) => void {
   const rnd = random(1919);
 
   // Moths: pale flecks on erratic loops round each lantern's flame.
@@ -35,7 +37,7 @@ export function addNightLife(
   const moths: { centre: number; r: number; speed: number; phase: number; tilt: number }[] = [];
   let positions = new Float32Array(0);
   const geo = new THREE.BufferGeometry();
-  const flecks = new THREE.Points(geo, new THREE.PointsMaterial({ color: 0xd9ceb2, size: 0.045, transparent: true, opacity: 0.9 }));
+  const flecks = new THREE.Points(geo, new THREE.PointsMaterial({ color: 0x8c8370, size: 0.03, transparent: true, opacity: 0.85 }));
   flecks.frustumCulled = false;
   scene.add(flecks);
   let placed = false;
@@ -47,7 +49,7 @@ export function addNightLife(
   let nextFlash = LIGHTNING_EVERY[0] * 0.5 + rnd() * 30;
   let flashStart = -1;
 
-  return (time) => {
+  return (time, courier) => {
     if (!placed) {
       // Lanterns are placed once the scene is built; take their flames' positions then.
       for (const l of litLanterns) {
@@ -63,6 +65,11 @@ export function addNightLife(
     }
     moths.forEach((m, i) => {
       const c = centres[m.centre];
+      // Only seen up close: from further off a moth is a lone pixel floating in the fog.
+      if (c.distanceTo(courier) > MOTHS_SEEN) {
+        positions.set([0, -1000, 0], i * 3);
+        return;
+      }
       const t = time * m.speed + m.phase;
       positions[i * 3] = c.x + Math.cos(t) * m.r + Math.sin(t * 2.7) * 0.08;
       positions[i * 3 + 1] = c.y + Math.sin(t * 1.3 + m.tilt) * 0.25;
