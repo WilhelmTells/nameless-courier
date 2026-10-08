@@ -103,6 +103,25 @@ body {
   font-size: 18px;
 }
 
+#screen.splash #screen-heading {
+  font-size: 28px;
+  letter-spacing: 0.08em;
+  line-height: 1.5;
+  white-space: pre-line;
+}
+
+#screen.splash #screen-info {
+  text-align: center;
+  opacity: 0.55;
+  animation: breathe 3s ease-in-out infinite;
+}
+
+@keyframes breathe {
+  50% {
+    opacity: 0.25;
+  }
+}
+
 #screen-heading:empty,
 #screen-text:empty,
 #screen-info:empty,

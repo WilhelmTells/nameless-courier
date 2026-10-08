@@ -1,7 +1,7 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
 import {
-  CLUB_CUTOFF, CLUB_REACH, clubKick, clubMix, CLUB_BASS, DEFAULT_VOLUMES, fallRush, FALL_RUSH, impactLevel,
+  arrangement, CLUB_CUTOFF, CLUB_REACH, clubClap, clubHat, clubKick, clubMix, CLUB_BASS, LEAD, STAB_STEPS, DEFAULT_VOLUMES, fallRush, FALL_RUSH, impactLevel,
   nextSyllable, parseVolumes, random, springPitch, VOWELS, windLevel, WIND_FULL_HEIGHT,
 } from "../src/core/audioCore.ts";
 
@@ -12,7 +12,7 @@ test("volumes fall back to the default when missing or broken", () => {
 });
 
 test("volumes are clamped to 0..1", () => {
-  assert.deepEqual(parseVolumes({ master: 2, ambience: -1, effects: 0.3, rain: 0.5 }), { master: 1, ambience: 0, effects: 0.3, rain: 0.5 });
+  assert.deepEqual(parseVolumes({ master: 2, ambience: -1, music: 0.4, effects: 0.3, rain: 0.5 }), { master: 1, ambience: 0, music: 0.4, effects: 0.3, rain: 0.5 });
 });
 
 test("the wind grows with height and strength, and is shut out indoors", () => {
@@ -35,8 +35,9 @@ test("the club is silent beyond its reach and grows as the courier comes close",
   assert.equal(clubMix(0).cutoff, CLUB_CUTOFF.near);
 });
 
-test("the club's cutoff stays low (only kick and bass come through)", () => {
-  for (let d = 0; d <= CLUB_REACH; d += 5) assert.ok(clubMix(d).cutoff <= 450);
+test("the club stays muffled: the cutoff never opens far", () => {
+  for (let d = 0; d <= CLUB_REACH; d += 5) assert.ok(clubMix(d).cutoff <= 1200);
+  assert.ok(clubMix(CLUB_REACH * 0.8).cutoff < 300);
 });
 
 test("a fall rushes only after a few metres, then grows to full", () => {
@@ -90,4 +91,32 @@ test("random numbers stay in 0..1, even from a zero seed", () => {
     const x = r();
     assert.ok(x >= 0 && x < 1);
   }
+});
+
+test("the track builds, breaks down without the kick, and comes back", () => {
+  assert.deepEqual(arrangement(0, true), { kick: true, bass: true, hat: false, clap: false, stab: false, lead: false });
+  assert.ok(arrangement(8, true).hat && !arrangement(8, true).stab);
+  assert.ok(arrangement(16, true).stab && !arrangement(16, true).lead);
+  assert.ok(arrangement(24, true).lead);
+  assert.ok(!arrangement(24, false).lead, "the club never plays the melody");
+  assert.ok(!arrangement(32, true).kick && arrangement(32, true).lead);
+  assert.ok(arrangement(40, true).kick);
+  assert.deepEqual(arrangement(48, true), arrangement(0, true));
+});
+
+test("clap on two and four, hats on the off-beats, apart from the kick", () => {
+  const bar = Array.from({ length: 16 }, (_, i) => i);
+  assert.deepEqual(bar.filter(clubClap), [4, 12]);
+  assert.deepEqual(bar.filter(clubHat), [2, 6, 10, 14]);
+  for (const i of bar) assert.ok(!(clubHat(i) && clubKick(i)));
+});
+
+test("stabs and melody fit their loops", () => {
+  for (const s of STAB_STEPS) assert.ok(s >= 0 && s < 32);
+  let end = 0;
+  for (const [step, , length] of LEAD) {
+    assert.ok(step >= end, "notes do not overlap");
+    end = step + length;
+  }
+  assert.ok(end <= 128);
 });

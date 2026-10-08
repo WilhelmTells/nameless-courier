@@ -45,6 +45,7 @@ export class Screens {
   /** Shows the overlay, empty, over a black of `black` (0 = see-through, 1 = black). */
   show(black: number): void {
     this.root.hidden = false;
+    this.root.classList.remove("splash");
     this.heading.textContent = "";
     this.info.textContent = "";
     this.setLines([]);
@@ -61,6 +62,14 @@ export class Screens {
   /** Fades the whole overlay, text included (1 = fully there). */
   setFade(opacity: number): void {
     this.root.style.opacity = String(opacity);
+  }
+
+  /** The opening screen: the name, large, and a quiet hint under it. */
+  splash(name: string, hint: string): void {
+    this.show(0.78);
+    this.root.classList.add("splash");
+    this.heading.textContent = name;
+    this.info.textContent = hint;
   }
 
   /** The title and a menu. */

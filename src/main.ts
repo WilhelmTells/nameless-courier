@@ -33,6 +33,7 @@ import { addClub } from "./audio/club.ts";
 import { Sound } from "./audio/engine.ts";
 import { addMurmur } from "./audio/murmur.ts";
 import { addRainSound } from "./audio/rain.ts";
+import { addTitleSong } from "./audio/titleSong.ts";
 import { addPogoSounds } from "./audio/pogoSounds.ts";
 import { WATER } from "./levels/surroundings.ts";
 import { ENDING, FIGURE_LINES, OPENING } from "./story.ts";
@@ -149,6 +150,7 @@ async function boot(): Promise<void> {
   const updateAmbience = addAmbience(sound, LEVEL.rooms ?? []);
   const updatePogoSounds = addPogoSounds(sound);
   const club = addClub(sound, LEVEL.clubs ?? []);
+  const updateTitleSong = addTitleSong(sound);
   const updateMurmur = addMurmur(sound, LEVEL.figures);
   // It rains all the time on the structure (user).
   const raining = LEVEL.zones.length > 0;
@@ -377,6 +379,7 @@ async function boot(): Promise<void> {
     screens.setSliders([
       { label: "Volume", value: v.master, change: volume("master") },
       { label: "Ambience", value: v.ambience, change: volume("ambience") },
+      { label: "Music", value: v.music, change: volume("music") },
       { label: "Effects", value: v.effects, change: volume("effects") },
       { label: "Rain", value: v.rain, change: volume("rain") },
     ]);
@@ -458,7 +461,21 @@ async function boot(): Promise<void> {
     if (!e.repeat) skip();
   });
   window.addEventListener("mousedown", skip);
-  if (mode === "title") showTitle();
+  // First a plain screen with the name: its click also starts the sound
+  // (browsers only allow audio after a gesture), so the title song plays
+  // under the menu.
+  const showSplash = () => {
+    hud.hidden = true;
+    screens.splash(TITLE.replace(" of ", "\nof "), "click to begin");
+    const begin = () => {
+      window.removeEventListener("click", begin);
+      window.removeEventListener("keydown", begin);
+      showTitle();
+    };
+    window.addEventListener("click", begin);
+    window.addEventListener("keydown", begin);
+  };
+  if (mode === "title") showSplash();
 
   function resize(): void {
     const w = window.innerWidth;
@@ -639,8 +656,10 @@ async function boot(): Promise<void> {
     updateRain(camera.position, time / 1000, Math.min(0.1, Math.max(0, frameDt)));
     updateRainSound(tip, time / 1000);
     updateAmbience(tip, time / 1000);
-    club.update(tip);
-    updateClubDoor(club.pulse(time / 1000));
+    // The title song plays on the title screen; the club everywhere else.
+    updateTitleSong(mode === "title");
+    club.update(tip, mode !== "title");
+    updateClubDoor(club.pulse());
     updatePogoSounds({ pos: pogo.pos, vel: pogo.vel, charge: pogo.charge, riding: pogo.ride.phase === "riding", sounds: pogo.sounds });
 
     retro.render(scene, camera);

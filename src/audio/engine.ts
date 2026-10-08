@@ -2,10 +2,11 @@
 // (browsers, Safari above all, only start audio from a user gesture). Every
 // sound is generated with the Web Audio API (§7); there are no audio files.
 //
-// Buses end in the master: ambience (wind, hum, machinery, the distant
-// club), effects (the pogo, the figures), rain, and a shared reverb that all
-// can send to. While a menu is open the effects fall silent and the ambience
-// and rain stay, a little quieter.
+// Buses end in the master: ambience (wind, hum, machinery), music (the title
+// song, the distant club), effects (the pogo, the figures), rain, and a
+// shared reverb that all can send to. While a menu is open the effects fall
+// silent and the ambience and rain stay, a little quieter; the music decides
+// for itself (the title song plays in menus, the club does not).
 
 import * as THREE from "three";
 import { DEFAULT_VOLUMES, parseVolumes, type Volumes } from "../core/audioCore.ts";
@@ -43,6 +44,7 @@ export interface Audio {
   effects: AudioNode;
   /** The rain has a volume of its own. */
   rain: AudioNode;
+  music: AudioNode;
   reverb: AudioNode;
   /** Two seconds of white noise, to loop or cut from. */
   noise: AudioBuffer;
@@ -54,6 +56,7 @@ export class Sound {
   private ambienceBus: GainNode | null = null;
   private effectsBus: GainNode | null = null;
   private rainBus: GainNode | null = null;
+  private musicBus: GainNode | null = null;
   private menuRain: GainNode | null = null;
   private menuAmbience: GainNode | null = null;
   private menuEffects: GainNode | null = null;
@@ -157,6 +160,8 @@ export class Sound {
     this.menuRain = ctx.createGain();
     this.rainBus = ctx.createGain();
     this.menuRain.connect(this.rainBus).connect(this.master);
+    this.musicBus = ctx.createGain();
+    this.musicBus.connect(this.master);
 
     // The reverb sits after the buses' volume, so turning one down also turns down its echo.
     const reverb = ctx.createConvolver();
@@ -167,7 +172,7 @@ export class Sound {
     const reverbIn = ctx.createGain();
     reverbIn.connect(reverb);
 
-    this.audio = { ctx, ambience: this.menuAmbience, effects: this.menuEffects, rain: this.menuRain, reverb: reverbIn, noise: whiteNoise(ctx, 2) };
+    this.audio = { ctx, ambience: this.menuAmbience, effects: this.menuEffects, rain: this.menuRain, music: this.musicBus, reverb: reverbIn, noise: whiteNoise(ctx, 2) };
     this.applyLevels(true);
     for (const build of this.readyCallbacks) build(this.audio);
     this.readyCallbacks = [];
@@ -175,7 +180,7 @@ export class Sound {
 
   private applyLevels(now = false): void {
     const ctx = this.audio?.ctx;
-    if (!ctx || !this.master || !this.ambienceBus || !this.effectsBus || !this.rainBus || !this.menuAmbience || !this.menuEffects || !this.menuRain) return;
+    if (!ctx || !this.master || !this.ambienceBus || !this.effectsBus || !this.rainBus || !this.musicBus || !this.menuAmbience || !this.menuEffects || !this.menuRain) return;
     const t = ctx.currentTime;
     const set = (p: AudioParam, v: number) => (now ? p.setValueAtTime(v, t) : p.setTargetAtTime(v, t, 0.08));
     // Slider positions feel more even squared (loudness is not linear).
@@ -183,6 +188,7 @@ export class Sound {
     set(this.ambienceBus.gain, this.volumes.ambience ** 2);
     set(this.effectsBus.gain, this.volumes.effects ** 2);
     set(this.rainBus.gain, this.volumes.rain ** 2);
+    set(this.musicBus.gain, this.volumes.music ** 2);
     set(this.menuRain.gain, this.inMenu ? MENU_AMBIENCE : 1);
     set(this.menuAmbience.gain, this.inMenu ? MENU_AMBIENCE : 1);
     set(this.menuEffects.gain, this.inMenu ? 0 : 1);

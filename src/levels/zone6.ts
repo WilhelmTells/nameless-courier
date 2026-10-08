@@ -117,5 +117,7 @@ export const zone6: Zone = {
     { id: "zone-6-crown", min: { x: -13, y: CROWN, z: -100 }, max: { x: -9, y: CROWN + 3, z: -96 } },
     { id: "summit", min: { x: 15, y: SUMMIT, z: -101 }, max: { x: 21, y: SUMMIT + 3, z: -95 } },
   ],
+  // The club one last time, inside tower E under its roof.
+  clubs: [{ x: -26, y: 112, z: -102 }],
   figures: [{ id: "waiting", pos: { x: 20.4, y: SUMMIT, z: -98 }, facing: -90, pose: "hood" }],
 };
