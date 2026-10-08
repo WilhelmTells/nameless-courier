@@ -29,7 +29,7 @@ to the camera, Space charges, and the mouse orbits the camera.
 | Mouse wheel | Zoom |
 | R | Reset the camera: behind you, at the usual angle and distance |
 | E | Get off the pogo at a calm spot, and back on |
-| Esc | Pause (resume, settings, quit to title) |
+| Esc | Pause (resume, settings, volumes, quit to title) |
 
 The pogo never stops bouncing. The lean at the moment the tip touches the
 ground decides where the next bounce goes; there is no control in the air.
@@ -44,6 +44,10 @@ drop: miss it and you fall all the way down.
 
 You are not quite alone. Here and there, tall dark figures stand on the
 ledges, and when you come close, they talk. Not to you, exactly.
+
+Sound is best with headphones: wind that grows as you climb, the hum and
+clank of the structure, and somewhere behind the walls, a party that never
+ended. Every sound is generated in the browser.
 
 ## Development
 

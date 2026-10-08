@@ -1,7 +1,7 @@
 {
   "name": "nameless-courier",
   "private": true,
-  "version": "0.11.0-dev",
+  "version": "0.12.0-dev",
   "description": "The Endless Journey of a Nameless Courier: a third-person pogo stick climbing game.",
   "author": "",
   "type": "module",
