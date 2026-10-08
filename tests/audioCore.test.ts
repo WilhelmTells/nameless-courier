@@ -1,7 +1,7 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
 import {
-  arrangement, CLUB_CUTOFF, CLUB_REACH, clubClap, clubHat, clubKick, clubMix, CLUB_BASS, LEAD, STAB_STEPS, DEFAULT_VOLUMES, fallRush, FALL_RUSH, impactLevel,
+  arrangement, CLUB_CUTOFF, CLUB_REACH, clubClap, clubHat, clubKick, clubMix, CLUB_BASS, LEAD, STAB_STEPS, DEFAULT_VOLUMES, fallRush, FALL_RUSH, startMusic, START_MUSIC, impactLevel,
   nextSyllable, parseVolumes, random, springPitch, VOWELS, windLevel, WIND_FULL_HEIGHT,
 } from "../src/core/audioCore.ts";
 
@@ -119,4 +119,12 @@ test("stabs and melody fit their loops", () => {
     end = step + length;
   }
   assert.ok(end <= 128);
+});
+
+test("the title song fades out as the courier climbs", () => {
+  assert.equal(startMusic(0), 1);
+  assert.equal(startMusic(START_MUSIC.full), 1);
+  assert.ok(startMusic(10) < 1 && startMusic(10) > startMusic(18));
+  assert.equal(startMusic(START_MUSIC.gone), 0);
+  assert.equal(startMusic(100), 0);
 });

@@ -37,7 +37,7 @@ import { addTitleSong } from "./audio/titleSong.ts";
 import { addPogoSounds } from "./audio/pogoSounds.ts";
 import { WATER } from "./levels/surroundings.ts";
 import { ENDING, FIGURE_LINES, OPENING } from "./story.ts";
-import type { Volumes } from "./core/audioCore.ts";
+import { startMusic, type Volumes } from "./core/audioCore.ts";
 import { Screens } from "./ui/screens.ts";
 import { VERSION } from "./version.ts";
 
@@ -656,8 +656,9 @@ async function boot(): Promise<void> {
     updateRain(camera.position, time / 1000, Math.min(0.1, Math.max(0, frameDt)));
     updateRainSound(tip, time / 1000);
     updateAmbience(tip, time / 1000);
-    // The title song plays on the title screen; the club everywhere else.
-    updateTitleSong(mode === "title");
+    // The title song plays on the title screen and carries on at the bottom of
+    // the climb, fading with height; the club plays everywhere but the title.
+    updateTitleSong(mode === "title" ? 1 : mode === "ending" ? 0 : startMusic(tip.y));
     club.update(tip, mode !== "title");
     updateClubDoor(club.pulse());
     updatePogoSounds({ pos: pogo.pos, vel: pogo.vel, charge: pogo.charge, riding: pogo.ride.phase === "riding", sounds: pogo.sounds });

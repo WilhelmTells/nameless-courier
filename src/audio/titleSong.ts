@@ -1,7 +1,8 @@
 // The title song (user): the same techno as the distant club, still
 // dampened, as if heard from the next room, but with a slow melody over it.
 // It starts with the stabs, the melody comes in after a few bars. It plays
-// on the title screen and fades out when the climb begins.
+// on the title screen and carries on into the climb, growing fainter and
+// duller with height until it is gone (user).
 
 import type { Audio, Sound } from "./engine.ts";
 import { Techno } from "./techno.ts";
@@ -11,13 +12,14 @@ const LEVEL = 0.5;
 /** Where in the arrangement it starts: the section with the stabs. */
 const START_BAR = 16;
 
-export function addTitleSong(sound: Sound): (playing: boolean) => void {
-  let update: ((playing: boolean) => void) | null = null;
+/** `level`: 1 in full, 0 silent; it also closes the low-pass. */
+export function addTitleSong(sound: Sound): (level: number) => void {
+  let update: ((level: number) => void) | null = null;
   sound.whenReady((a) => (update = build(a)));
-  return (playing) => update?.(playing);
+  return (level) => update?.(level);
 }
 
-function build(a: Audio): (playing: boolean) => void {
+function build(a: Audio): (level: number) => void {
   const { ctx } = a;
   const track = new Techno(ctx, a.noise, true, START_BAR);
   // Dampened: a low-pass that breathes slowly between dull and a little clearer.
@@ -41,15 +43,13 @@ function build(a: Audio): (playing: boolean) => void {
   wet.gain.value = LEVEL * 0.5;
   fader.connect(wet).connect(a.reverb);
 
-  let audible = false;
-  return (playing) => {
+  return (level) => {
     const now = ctx.currentTime;
-    if (playing !== audible) {
-      audible = playing;
-      fader.gain.cancelScheduledValues(now);
-      fader.gain.setTargetAtTime(playing ? 1 : 0, now, playing ? 0.8 : 1.2);
-    }
-    // Keep scheduling a little after the fade starts, so it fades rather than stops.
-    track.update(playing || fader.gain.value > 0.01);
+    fader.gain.setTargetAtTime(level, now, 0.8);
+    // Fainter is also duller: the song sinks below as the courier climbs.
+    muffle.frequency.setTargetAtTime(250 + 650 * level, now, 0.8);
+    depth.gain.setTargetAtTime(450 * level, now, 0.8);
+    // Keep scheduling while it fades, so it fades rather than stops.
+    track.update(level > 0 || fader.gain.value > 0.01);
   };
 }

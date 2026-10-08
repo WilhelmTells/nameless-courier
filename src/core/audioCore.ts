@@ -29,6 +29,18 @@ export function parseVolumes(raw: unknown): Volumes {
   return { master: pick("master"), ambience: pick("ambience"), music: pick("music"), effects: pick("effects"), rain: pick("rain") };
 }
 
+/**
+ * The title song carries on into the climb (user): full at the bottom, gone
+ * by `gone` m, so the climb turns quiet until the club in Zone 3.
+ */
+export const START_MUSIC = { full: 2, gone: 24 };
+
+/** How much of the title song is left at `height`, 0..1 (smooth). */
+export function startMusic(height: number): number {
+  const x = clamp01((START_MUSIC.gone - height) / (START_MUSIC.gone - START_MUSIC.full));
+  return x * x * (3 - 2 * x);
+}
+
 /** Height at which the wind is at its loudest, m. */
 export const WIND_FULL_HEIGHT = 140;
 
