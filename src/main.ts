@@ -224,9 +224,9 @@ async function boot(): Promise<void> {
   const up = new THREE.Vector3(0, 1, 0);
   const axis = new THREE.Vector3();
 
-  // The sling bag swings from a strap point at the courier's hip, this far
+  // The sling bag swings from a strap point on the courier's back, this far
   // up the stick from the tip (visual only).
-  const BAG_ANCHOR = 1.12;
+  const BAG_ANCHOR = 1.4;
   const bagConfig = (): SwingConfig => ({
     stiffness: pogoConfig.bagStiffness,
     damping: pogoConfig.bagDamping,
