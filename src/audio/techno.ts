@@ -1,10 +1,10 @@
-// The techno track, generated: kick, clap, open hats, a rolling bass, dub
-// chord stabs with an echo and, for the title song, a slow melody. The club
-// and the title song both play it; each muffles it its own way. The
+// The techno track, generated: kick, clap, open hats, a rolling bass and
+// chord stabs with an echo. The club and the title song both play it; each
+// muffles (and the title song dirties) it its own way. The
 // arrangement (audioCore) builds, breaks down and comes back every 48 bars.
 
 import {
-  arrangement, CLUB_BASS, CLUB_BPM, clubClap, clubHat, clubKick, LEAD, STAB_CHORD, STAB_STEPS,
+  arrangement, CLUB_BASS, CLUB_BPM, clubClap, clubHat, clubKick, STAB_CHORD, STAB_STEPS,
 } from "../core/audioCore.ts";
 
 export const SIXTEENTH = 60 / CLUB_BPM / 4;
@@ -12,7 +12,6 @@ export const SIXTEENTH = 60 / CLUB_BPM / 4;
 const AHEAD = 0.3;
 const A1 = 55;
 const A3 = 220;
-const A4 = 440;
 
 const hz = (base: number, semitones: number) => base * Math.pow(2, semitones / 12);
 
@@ -21,18 +20,19 @@ export class Techno {
   readonly out: GainNode;
   private readonly ctx: BaseAudioContext;
   private readonly noise: AudioBuffer;
-  private readonly withLead: boolean;
+  private readonly chord: readonly number[];
   /** Next sixteenth to schedule, counted from time 0 of the audio clock (so every copy keeps the same beat). */
   private step: number;
   private readonly stabIn: GainNode;
   /** Bars added to the clock's: where in the arrangement the track starts. */
   private readonly barOffset: number;
 
-  constructor(ctx: BaseAudioContext, noise: AudioBuffer, withLead: boolean, barOffset = 0) {
+  constructor(ctx: BaseAudioContext, noise: AudioBuffer, opts: { barOffset?: number; chord?: readonly number[] } = {}) {
+    const { barOffset = 0, chord = STAB_CHORD } = opts;
+    this.chord = chord;
     this.barOffset = barOffset;
     this.ctx = ctx;
     this.noise = noise;
-    this.withLead = withLead;
     this.out = ctx.createGain();
     this.step = Math.ceil(ctx.currentTime / SIXTEENTH);
     // The stabs echo: a dotted-eighth delay, darker each time round.
@@ -63,24 +63,20 @@ export class Techno {
   pulse(): number {
     const t = this.ctx.currentTime;
     const bar = Math.floor(t / (SIXTEENTH * 16)) + this.barOffset;
-    if (!arrangement(bar, this.withLead).kick) return 0;
+    if (!arrangement(bar).kick) return 0;
     return Math.exp(-(t % (SIXTEENTH * 4)) * 9);
   }
 
   private play(step: number, t: number): void {
     const bar = Math.floor(step / 16) + this.barOffset;
     const inBar = step % 16;
-    const a = arrangement(bar, this.withLead);
+    const a = arrangement(bar);
     if (a.kick && clubKick(inBar)) this.kick(t);
     if (a.clap && clubClap(inBar)) this.clap(t);
     if (a.hat && clubHat(inBar)) this.hat(t);
     const note = CLUB_BASS[step % CLUB_BASS.length];
     if (a.bass && note !== null) this.bass(t, note);
     if (a.stab && STAB_STEPS.includes(step % 32)) this.stab(t);
-    if (a.lead) {
-      const n = LEAD.find(([s]) => s === step % 128);
-      if (n) this.lead(t, n[1], n[2] * SIXTEENTH);
-    }
   }
 
   private env(t: number, level: number, decay: number, attack = 0.004): GainNode {
@@ -163,34 +159,8 @@ export class Techno {
     g.gain.linearRampToValueAtTime(0.12, t + 0.005);
     g.gain.exponentialRampToValueAtTime(0.001, t + 0.25);
     f.connect(g).connect(this.stabIn);
-    for (const n of STAB_CHORD) {
+    for (const n of this.chord) {
       for (const detune of [-6, 6]) this.osc(t, "sawtooth", hz(A3, n), f, 0.3).detune.value = detune;
     }
-  }
-
-  private lead(t: number, semitones: number, length: number): void {
-    const f = this.ctx.createBiquadFilter();
-    f.type = "lowpass";
-    f.frequency.value = 1600;
-    const g = this.ctx.createGain();
-    g.gain.setValueAtTime(0, t);
-    g.gain.linearRampToValueAtTime(0.16, t + 0.06);
-    g.gain.setTargetAtTime(0.1, t + 0.06, length * 0.4);
-    g.gain.setTargetAtTime(0, t + length, 0.12);
-    f.connect(g).connect(this.stabIn);
-    const o = this.osc(t, "triangle", hz(A4, semitones), f, length + 0.6);
-    const o2 = this.osc(t, "square", hz(A4, semitones - 12), f, length + 0.6);
-    o2.detune.value = 4;
-    // A slow vibrato that comes in late.
-    const vib = this.ctx.createOscillator();
-    vib.frequency.value = 5;
-    const depth = this.ctx.createGain();
-    depth.gain.setValueAtTime(0, t);
-    depth.gain.linearRampToValueAtTime(6, t + Math.min(length, 0.8));
-    vib.connect(depth);
-    depth.connect(o.detune);
-    depth.connect(o2.detune);
-    vib.start(t);
-    vib.stop(t + length + 0.6);
   }
 }

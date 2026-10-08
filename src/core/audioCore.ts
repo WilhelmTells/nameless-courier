@@ -104,21 +104,9 @@ export const CLUB_BASS: readonly (number | null)[] = [
 
 /** The chord stab: minor seventh on A (semitones above A3); played on these sixteenths of a two-bar loop. */
 export const STAB_CHORD: readonly number[] = [0, 3, 7, 10];
+/** The title song's darker stab: root, minor second and fifth, a grinding cluster. */
+export const DARK_CHORD: readonly number[] = [0, 1, 7];
 export const STAB_STEPS: readonly number[] = [6, 19, 22];
-
-/**
- * The title song's melody over eight bars (128 sixteenths): [step, semitones
- * above A4, length in sixteenths]. A slow, falling line in A minor.
- */
-export const LEAD: readonly (readonly [number, number, number])[] = [
-  [0, 7, 6], [6, 5, 2], [8, 3, 8],
-  [24, 0, 4], [28, 3, 4],
-  [32, 7, 6], [38, 10, 2], [40, 7, 8],
-  [56, 5, 4], [60, 3, 4],
-  [64, 7, 6], [70, 5, 2], [72, 3, 8],
-  [88, 0, 4], [92, -2, 4],
-  [96, 0, 12], [112, 3, 4], [116, 2, 4], [120, -2, 8],
-];
 
 /** What plays in a bar of the track. */
 export interface Arrangement {
@@ -127,26 +115,23 @@ export interface Arrangement {
   hat: boolean;
   clap: boolean;
   stab: boolean;
-  lead: boolean;
 }
 
 /**
  * The track over time, in eight-bar sections that come round again: it builds
  * from kick and bass, adds hats, clap and stabs, drops the kick in a
- * breakdown, and comes back in full. The melody only plays when `withLead`.
+ * breakdown, and comes back in full.
  */
-export function arrangement(bar: number, withLead: boolean): Arrangement {
+export function arrangement(bar: number): Arrangement {
   const section = Math.floor(Math.max(0, bar) / 8) % 6;
-  const all = { kick: true, bass: true, hat: true, clap: true, stab: true, lead: withLead };
+  const all = { kick: true, bass: true, hat: true, clap: true, stab: true };
   switch (section) {
     case 0:
-      return { ...all, hat: false, clap: false, stab: false, lead: false };
+      return { ...all, hat: false, clap: false, stab: false };
     case 1:
-      return { ...all, clap: false, stab: false, lead: false };
-    case 2:
-      return { ...all, lead: false };
+      return { ...all, clap: false, stab: false };
     case 4:
-      // Breakdown: no kick, no bass; the stabs and the melody carry on.
+      // Breakdown: no kick, no bass; the stabs carry on.
       return { ...all, kick: false, bass: false, hat: false, clap: false };
     default:
       return all;

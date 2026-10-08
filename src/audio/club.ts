@@ -32,7 +32,7 @@ export function addClub(sound: Sound, spots: readonly Vec3[]): Club {
 
 function build(a: Audio, spots: readonly Vec3[]): { update: (courier: Vec3, audible: boolean) => void; track: Techno } {
   const { ctx } = a;
-  const track = new Techno(ctx, a.noise, false);
+  const track = new Techno(ctx, a.noise);
   const fader = ctx.createGain();
   track.out.connect(fader);
 

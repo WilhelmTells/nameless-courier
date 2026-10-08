@@ -1,7 +1,7 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
 import {
-  arrangement, CLUB_CUTOFF, CLUB_REACH, clubClap, clubHat, clubKick, clubMix, CLUB_BASS, LEAD, STAB_STEPS, DEFAULT_VOLUMES, fallRush, FALL_RUSH, startMusic, START_MUSIC, impactLevel,
+  arrangement, CLUB_CUTOFF, CLUB_REACH, clubClap, clubHat, clubKick, clubMix, CLUB_BASS, STAB_STEPS, DEFAULT_VOLUMES, fallRush, FALL_RUSH, startMusic, START_MUSIC, impactLevel,
   nextSyllable, parseVolumes, random, springPitch, VOWELS, windLevel, WIND_FULL_HEIGHT,
 } from "../src/core/audioCore.ts";
 
@@ -94,14 +94,12 @@ test("random numbers stay in 0..1, even from a zero seed", () => {
 });
 
 test("the track builds, breaks down without the kick, and comes back", () => {
-  assert.deepEqual(arrangement(0, true), { kick: true, bass: true, hat: false, clap: false, stab: false, lead: false });
-  assert.ok(arrangement(8, true).hat && !arrangement(8, true).stab);
-  assert.ok(arrangement(16, true).stab && !arrangement(16, true).lead);
-  assert.ok(arrangement(24, true).lead);
-  assert.ok(!arrangement(24, false).lead, "the club never plays the melody");
-  assert.ok(!arrangement(32, true).kick && arrangement(32, true).lead);
-  assert.ok(arrangement(40, true).kick);
-  assert.deepEqual(arrangement(48, true), arrangement(0, true));
+  assert.deepEqual(arrangement(0), { kick: true, bass: true, hat: false, clap: false, stab: false });
+  assert.ok(arrangement(8).hat && !arrangement(8).stab);
+  assert.ok(arrangement(16).stab && arrangement(16).clap);
+  assert.ok(!arrangement(32).kick && arrangement(32).stab);
+  assert.ok(arrangement(40).kick);
+  assert.deepEqual(arrangement(48), arrangement(0));
 });
 
 test("clap on two and four, hats on the off-beats, apart from the kick", () => {
@@ -111,14 +109,8 @@ test("clap on two and four, hats on the off-beats, apart from the kick", () => {
   for (const i of bar) assert.ok(!(clubHat(i) && clubKick(i)));
 });
 
-test("stabs and melody fit their loops", () => {
+test("stabs fit their loop", () => {
   for (const s of STAB_STEPS) assert.ok(s >= 0 && s < 32);
-  let end = 0;
-  for (const [step, , length] of LEAD) {
-    assert.ok(step >= end, "notes do not overlap");
-    end = step + length;
-  }
-  assert.ok(end <= 128);
 });
 
 test("the title song fades out as the courier climbs", () => {
