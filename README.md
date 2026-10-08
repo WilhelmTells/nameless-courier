@@ -1,6 +1,13 @@
 # The Endless Journey of a Nameless Courier
 
-A pogo stick climbing game in the browser.
+A courier with no name carries a parcel with no address up a vast,
+rain-soaked structure, one bounce at a time on a pogo stick. Somewhere behind
+the walls a party never ended; muffled techno is the only sign that anyone is
+still there. Tall dark figures wait on the ledges and talk, though not quite
+to you. One bad bounce can cost a lot of the climb.
+
+A third-person climbing game for desktop browsers, played with mouse or
+keyboard.
 
 **[▶ Play](https://wilhelmtells.github.io/nameless-courier/)**
 
