@@ -12,7 +12,7 @@ import { inRestSpot, standAmount } from "./core/restCore.ts";
 import { restOffset, restSwing, stepSwing, type SwingConfig } from "./core/swingCore.ts";
 import { OrbitCamera } from "./game/camera.ts";
 import { controlMode, initInput, readInput, setControlMode, setStanding, type ControlMode } from "./game/input.ts";
-import { easyMode, mouseSensitivity, setEasyMode, setMouseSensitivity } from "./game/settings.ts";
+import { easyMode, invertedY, mouseSensitivity, setEasyMode, setInvertY, setMouseSensitivity } from "./game/settings.ts";
 import { LandingMarker } from "./game/landingMarker.ts";
 import { Pogo } from "./game/pogo.ts";
 import { buildLevel } from "./game/world.ts";
@@ -404,6 +404,7 @@ async function boot(): Promise<void> {
     screens.ask(`Settings\n\nControls\n\n${CONTROLS_HELP[controlMode()]}\n\n${EASY_HELP}`, [
       { label: `${mark("mouse")}Mouse`, action: pick("mouse") },
       { label: `${mark("wasd")}Keyboard (W A S D)`, action: pick("wasd") },
+      { label: `${invertedY() ? "■ " : "□ "}Invert Y`, action: () => (setInvertY(!invertedY()), showSettings(back)) },
       { label: `${easyMode() ? "■ " : "□ "}Easy mode`, action: toggleEasy },
       { label: "Back", action: back },
     ]);

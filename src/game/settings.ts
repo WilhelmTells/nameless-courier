@@ -1,4 +1,4 @@
-// Settings saved beside the controls: easy mode and the mouse sensitivity.
+// Settings saved beside the controls: easy mode, the mouse sensitivity and invert Y.
 //
 // Easy mode (user): off by default, switched in Settings. With it on,
 // getting off the pogo at a rest spot checks the courier in there, and Q or
@@ -56,4 +56,24 @@ export function setMouseSensitivity(value: number): void {
   sensitivity = Math.min(1, Math.max(0, value));
   applySensitivity();
   saveSetting("sensitivity", sensitivity);
+}
+
+// Invert Y (user): flips the mouse's up and down for both the lean (mouse
+// controls) and the camera's pitch (keyboard controls), against the defaults.
+let invertY = loadSettings().invertY === true;
+applyInvertY();
+
+function applyInvertY(): void {
+  pogoConfig.mouseInvertY = invertY ? !DEFAULT_POGO.mouseInvertY : DEFAULT_POGO.mouseInvertY;
+  cameraConfig.invertY = invertY ? !DEFAULT_CAMERA.invertY : DEFAULT_CAMERA.invertY;
+}
+
+export function invertedY(): boolean {
+  return invertY;
+}
+
+export function setInvertY(on: boolean): void {
+  invertY = on;
+  applyInvertY();
+  saveSetting("invertY", on);
 }
