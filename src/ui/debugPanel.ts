@@ -41,6 +41,9 @@ const POGO: ConfigGroup<PogoConfig> = {
     leanPush: [0, 2, 0.05],
     squashTime: [0, 0.3, 0.01],
     turnTime: [0.02, 1, 0.01],
+    bagStiffness: [20, 600, 5],
+    bagDamping: [0, 40, 0.5],
+    bagMaxSwing: [0, 0.5, 0.01],
     wallAngle: [30, 89, 1],
     floorContactLimit: [20, 90, 1],
     slopeBlend: [0, 1, 0.05],
@@ -71,7 +74,7 @@ const POGO: ConfigGroup<PogoConfig> = {
     ["Bonk", ["bonkRestitution", "bonkKeep", "bonkMinSpeed", "bonkLockTime", "wallPushSpeed"]],
     ["Rest", ["dismountTime", "mountTime", "dismountMaxSpeed"]],
     ["Surfaces", ["trampolineFactor", "mudFactor", "mudChargeRate", "mudKeep"]],
-    ["Visual", ["squashTime", "turnTime"]],
+    ["Visual", ["squashTime", "turnTime", "bagStiffness", "bagDamping", "bagMaxSwing"]],
   ],
 };
 

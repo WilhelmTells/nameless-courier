@@ -7,6 +7,7 @@ import { advanceLoop } from "./core/loopCore.ts";
 import { followYaw } from "./core/cameraCore.ts";
 import { stickAxis } from "./core/pogoCore.ts";
 import { standAmount } from "./core/restCore.ts";
+import { restOffset, restSwing, stepSwing, type SwingConfig } from "./core/swingCore.ts";
 import { OrbitCamera } from "./game/camera.ts";
 import { controlMode, initInput, onControlModeChange, readInput, setStanding, type ControlMode } from "./game/input.ts";
 import { LandingMarker } from "./game/landingMarker.ts";
@@ -222,6 +223,34 @@ async function boot(): Promise<void> {
   const facingTurn = new THREE.Quaternion();
   const up = new THREE.Vector3(0, 1, 0);
   const axis = new THREE.Vector3();
+
+  // The sling bag swings from a strap point on the courier's back, this far
+  // up the stick from the tip (visual only).
+  const BAG_ANCHOR = 1.4;
+  const bagConfig = (): SwingConfig => ({
+    stiffness: pogoConfig.bagStiffness,
+    damping: pogoConfig.bagDamping,
+    maxSwing: pogoConfig.bagMaxSwing,
+  });
+  const bagAnchor = () => {
+    const a = stickAxis(pogo.lean);
+    return { x: pogo.pos.x + a.x * BAG_ANCHOR, y: pogo.pos.y + a.y * BAG_ANCHOR, z: pogo.pos.z + a.z * BAG_ANCHOR };
+  };
+  let bag = restSwing(pogoConfig.gravity, bagConfig());
+  let prevBagOffset = bag.offset;
+  let lastAnchor = bagAnchor();
+  let anchorVel = { x: 0, y: 0, z: 0 };
+  const stepBag = (dt: number) => {
+    const p = bagAnchor();
+    const v = { x: (p.x - lastAnchor.x) / dt, y: (p.y - lastAnchor.y) / dt, z: (p.z - lastAnchor.z) / dt };
+    const dv = { x: v.x - anchorVel.x, y: v.y - anchorVel.y, z: v.z - anchorVel.z };
+    lastAnchor = p;
+    anchorVel = v;
+    prevBagOffset = bag.offset;
+    bag = stepSwing(bag, dv, pogoConfig.gravity, bagConfig(), dt);
+  };
+  const bagDelta = new THREE.Vector3();
+  const rigTurnBack = new THREE.Quaternion();
   const tip = new THREE.Vector3();
   const rider = new THREE.Vector3();
   let accumulator = 0;
@@ -244,6 +273,7 @@ async function boot(): Promise<void> {
     accumulator = loop.accumulator;
     for (let i = 0; i < loop.steps; i++) {
       pogo.step(readInput(), orbit.yaw, SIM_DT);
+      stepBag(SIM_DT);
       stats.time += SIM_DT;
       levelWorld.advance(stats.time);
       physics.step();
@@ -273,6 +303,16 @@ async function boot(): Promise<void> {
       .setFromUnitVectors(up, axis.set(s.x, s.y, s.z))
       .multiply(facingTurn.setFromAxisAngle(up, facing));
     rig.setStand(standAmount(pogo.ride, pogoConfig));
+    // The bag's swing, from world space into the rig's.
+    const bagRest = restOffset(pogoConfig.gravity, bagConfig());
+    bagDelta
+      .set(
+        prevBagOffset.x + (bag.offset.x - prevBagOffset.x) * a - bagRest.x,
+        prevBagOffset.y + (bag.offset.y - prevBagOffset.y) * a - bagRest.y,
+        prevBagOffset.z + (bag.offset.z - prevBagOffset.z) * a - bagRest.z,
+      )
+      .applyQuaternion(rigTurnBack.copy(rig.group.quaternion).invert());
+    rig.setBag(bagDelta);
 
     // Squash and stretch on launch (visual only).
     const sq = pogo.sinceLaunch < pogoConfig.squashTime ? Math.sin((Math.PI * pogo.sinceLaunch) / pogoConfig.squashTime) : 0;
