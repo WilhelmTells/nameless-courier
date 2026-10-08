@@ -20,7 +20,7 @@ export interface PogoHeard {
 }
 
 /** Peak loudness of each sound (before the effects volume). */
-const LEVEL = { charge: 0.05, twang: 0.12, impact: 0.5, bonk: 0.6, rush: 0.35 };
+const LEVEL = { charge: 0.05, twang: 0.12, impact: 0.5, bonk: 0.6, rush: 0.15 };
 /** Share of each strike sent to the reverb. */
 const REVERB_SEND = 0.18;
 

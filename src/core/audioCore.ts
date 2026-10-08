@@ -55,7 +55,7 @@ export function clubMix(distance: number): { gain: number; cutoff: number } {
 }
 
 /** A fall starts to rush after this far below the peak, m; full at FALL_RUSH.full. */
-export const FALL_RUSH = { start: 4, full: 20 };
+export const FALL_RUSH = { start: 8, full: 35 };
 
 /** Loudness 0..1 of the air rushing past during a fall `fallen` m below the peak. */
 export function fallRush(fallen: number, falling: boolean): number {

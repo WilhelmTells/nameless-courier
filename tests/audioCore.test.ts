@@ -42,8 +42,8 @@ test("the club's cutoff stays low (only kick and bass come through)", () => {
 test("a fall rushes only after a few metres, then grows to full", () => {
   assert.equal(fallRush(30, false), 0);
   assert.equal(fallRush(FALL_RUSH.start, true), 0);
-  assert.ok(fallRush(10, true) > 0);
-  assert.ok(fallRush(10, true) < fallRush(15, true));
+  assert.ok(fallRush(12, true) > 0);
+  assert.ok(fallRush(12, true) < fallRush(20, true));
   assert.equal(fallRush(FALL_RUSH.full, true), 1);
   assert.equal(fallRush(100, true), 1);
 });
