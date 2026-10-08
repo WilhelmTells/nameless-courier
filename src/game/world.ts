@@ -245,7 +245,9 @@ export function buildLevel(level: Level, scene: THREE.Scene, physics: RAPIER.Wor
     // Readability (§6): a pale trim on the edges of surfaces you can land on.
     mesh.updateMatrixWorld();
     const toWorld = (local: THREE.Vector3) => local.clone().applyMatrix4(mesh.matrixWorld);
-    const trim = trimGeometry(geo, mesh.quaternion, piece.motion.kind === "none" ? (q) => onATop(toWorld(q)) : undefined);
+    // Furniture (wood, cloth, iron, rust parts) has no trim: on chairs and shelves it reads as wire.
+    const furniture = piece.material === "wood" || piece.material === "cloth" || piece.material === "iron" || piece.material === "rust";
+    const trim = furniture ? null : trimGeometry(geo, mesh.quaternion, piece.motion.kind === "none" ? (q) => onATop(toWorld(q)) : undefined);
     if (trim) mesh.add(new THREE.Mesh(trim, look.edge));
     scene.add(mesh);
 

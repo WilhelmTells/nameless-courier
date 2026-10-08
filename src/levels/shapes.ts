@@ -63,3 +63,99 @@ export function fountain(id: string, x: number, z: number, y: number): Piece[] {
     { ...pole(`${id}-finial`, x, z, 0.35, y + 1.85, y + 2.75), material: "stone" },
   ];
 }
+
+/** One box of a piece of furniture, in its own frame: extents across (x), up (y) and along (z), and its look. */
+type Part = [name: string, x0: number, x1: number, y0: number, y1: number, z0: number, z1: number, material?: string];
+
+/**
+ * A piece of furniture made of boxes, standing on `y` at (`x`, `z`), turned
+ * `yaw` degrees. Every part is solid.
+ */
+function furniture(id: string, x: number, z: number, y: number, yaw: number, parts: Part[], material = "wood"): Piece[] {
+  const a = (yaw * Math.PI) / 180;
+  const cos = Math.cos(a), sin = Math.sin(a);
+  return parts.map(([name, x0, x1, y0, y1, z0, z1, look]) => {
+    const cx = (x0 + x1) / 2, cz = (z0 + z1) / 2;
+    // Turned about the vertical axis like a piece's own rotation.
+    const wx = x + cx * cos + cz * sin, wz = z - cx * sin + cz * cos;
+    const sx = (x1 - x0) / 2, sz = (z1 - z0) / 2;
+    return {
+      ...block(`${id}-${name}`, wx - sx, wx + sx, y + y0, y + y1, wz - sz, wz + sz),
+      rotation: { x: 0, y: yaw, z: 0 },
+      material: look ?? material,
+    };
+  });
+}
+
+/** Four legs under a top, `w` × `d`, legs `t` thick, standing `h` high. */
+function legs(w: number, d: number, h: number, t = 0.06): Part[] {
+  const x = w / 2 - t, z = d / 2 - t;
+  return [
+    ["leg-1", -x - t / 2, -x + t / 2, 0, h, -z - t / 2, -z + t / 2],
+    ["leg-2", x - t / 2, x + t / 2, 0, h, -z - t / 2, -z + t / 2],
+    ["leg-3", -x - t / 2, -x + t / 2, 0, h, z - t / 2, z + t / 2],
+    ["leg-4", x - t / 2, x + t / 2, 0, h, z - t / 2, z + t / 2],
+  ];
+}
+
+/** A wooden table, 1.4 × 0.8 m, 0.78 m high. Its id ends in "-lantern-top" when a lantern burns on it. */
+export function table(id: string, x: number, z: number, y: number, yaw = 0, lantern = false): Piece[] {
+  return furniture(id, x, z, y, yaw, [...legs(1.4, 0.8, 0.74), [lantern ? "top-lantern" : "top", -0.7, 0.7, 0.74, 0.78, -0.4, 0.4]]);
+}
+
+/** A wooden chair facing -Z (its back at +Z); `tipped` lies it on its back. */
+export function chair(id: string, x: number, z: number, y: number, yaw = 0, tipped = false): Piece[] {
+  if (tipped) {
+    // On its back: the seat stands upright, the back lies flat.
+    return furniture(id, x, z, y, yaw, [
+      ["back", -0.22, 0.22, 0, 0.04, -0.25, 0.3],
+      ["seat", -0.22, 0.22, 0, 0.45, 0.3, 0.34],
+      ["leg-1", -0.22, -0.17, 0.4, 0.44, 0.3, 0.75],
+      ["leg-2", 0.17, 0.22, 0.4, 0.44, 0.3, 0.75],
+    ]);
+  }
+  return furniture(id, x, z, y, yaw, [
+    ...legs(0.44, 0.44, 0.43, 0.05),
+    ["seat", -0.22, 0.22, 0.43, 0.47, -0.22, 0.22],
+    ["back", -0.22, 0.22, 0.47, 0.95, 0.18, 0.22],
+  ]);
+}
+
+/** Tall open shelves against a wall, 1.2 m wide, 0.4 m deep, `h` high, their back at +Z. */
+export function shelves(id: string, x: number, z: number, y: number, yaw = 0, h = 1.8): Piece[] {
+  const boards: Part[] = [0.05, h * 0.36, h * 0.68, h - 0.04].map((b, i) => [`board-${i + 1}`, -0.6, 0.6, b - 0.03, b + 0.03, -0.2, 0.2]);
+  return furniture(id, x, z, y, yaw, [
+    ["side-1", -0.6, -0.56, 0, h, -0.2, 0.2],
+    ["side-2", 0.56, 0.6, 0, h, -0.2, 0.2],
+    ["back", -0.56, 0.56, 0, h, 0.17, 0.2],
+    ...boards,
+  ]);
+}
+
+/** A wardrobe against a wall, its back at +Z. */
+export function wardrobe(id: string, x: number, z: number, y: number, yaw = 0): Piece[] {
+  return furniture(id, x, z, y, yaw, [
+    ["body", -0.55, 0.55, 0.08, 1.95, -0.3, 0.3],
+    ["foot", -0.5, 0.5, 0, 0.08, -0.26, 0.26],
+    ["cornice", -0.6, 0.6, 1.95, 2.02, -0.33, 0.33],
+  ]);
+}
+
+/** A narrow iron bed with a grey blanket, its head at +Z. */
+export function bed(id: string, x: number, z: number, y: number, yaw = 0): Piece[] {
+  return furniture(id, x, z, y, yaw, [
+    ...legs(0.9, 1.95, 0.3, 0.05).map(([n, x0, x1, y0, y1, z0, z1]): Part => [n, x0, x1, y0, y1, z0, z1, "iron"]),
+    ["frame", -0.45, 0.45, 0.3, 0.36, -0.98, 0.98, "iron"],
+    ["mattress", -0.42, 0.42, 0.36, 0.5, -0.95, 0.95, "cloth"],
+    ["head", -0.45, 0.45, 0.3, 0.95, 0.95, 0.99, "iron"],
+  ]);
+}
+
+/** A heavy workbench, 2 × 0.8 m, 0.9 m high. */
+export function workbench(id: string, x: number, z: number, y: number, yaw = 0, lantern = false): Piece[] {
+  return furniture(id, x, z, y, yaw, [
+    ...legs(2, 0.8, 0.84, 0.09),
+    ["shelf", -0.9, 0.9, 0.18, 0.22, -0.32, 0.32],
+    [lantern ? "top-lantern" : "top", -1, 1, 0.84, 0.9, -0.4, 0.4],
+  ]);
+}

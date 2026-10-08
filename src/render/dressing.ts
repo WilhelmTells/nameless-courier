@@ -11,6 +11,7 @@ import { mergeGeometries } from "three/examples/jsm/utils/BufferGeometryUtils.js
 import type { Level, Piece } from "../levels/types.ts";
 import { deadLantern, lantern } from "./lantern.ts";
 import { windStrength } from "./atmosphere.ts";
+import { facesRoom } from "./worldLook.ts";
 
 /** Fixed pseudo-random numbers, so the dressing is the same every time. */
 function random(seed: number): () => number {
@@ -219,6 +220,8 @@ export function addDressing(level: Level, scene: THREE.Scene): (time: number) =>
       return Math.hypot(p.x - cx, p.z - cz) < WATER_NEAR_REST && Math.abs(p.y - r.min.y) < 12;
     });
 
+  const inRoom = (p: THREE.Vector3) =>
+    (level.rooms ?? []).some((r) => p.x > r.min.x && p.x < r.max.x && p.z > r.min.z && p.z < r.max.z && p.y > r.min.y && p.y < r.max.y);
   const zoneOf = new Map<string, number>();
   level.zones.forEach((z, i) => z.pieces.forEach((p) => zoneOf.set(p.id, i)));
   const streamsIn: number[] = [];
@@ -226,7 +229,7 @@ export function addDressing(level: Level, scene: THREE.Scene): (time: number) =>
 
   /** Water falling from `mouth` to the next surface below, splashing there; only near rest spots, two per zone. */
   const pour = (mouth: THREE.Vector3): boolean => {
-    if ((streamsIn[zone] ?? 0) >= STREAMS_PER_ZONE || !nearRest(mouth)) return false;
+    if ((streamsIn[zone] ?? 0) >= STREAMS_PER_ZONE || !nearRest(mouth) || inRoom(mouth)) return false;
     const path = waterPath(mouth);
     if (!path.clear || !path.big) return false;
     streamsIn[zone] = (streamsIn[zone] ?? 0) + 1;
@@ -275,6 +278,8 @@ export function addDressing(level: Level, scene: THREE.Scene): (time: number) =>
     for (const w of walls) {
       const length = w.to - w.from;
       if (length < MIN_WALL) continue;
+      // Inside a room: pipes and cracks, but no ivy and no water.
+      const indoors = facesRoom(level, w, y0, y1);
       const q = new THREE.Quaternion().setFromAxisAngle(up, w.yaw);
       const out = new THREE.Vector3(0, 0, 1).applyQuaternion(q);
       const at = (along: number, y: number, off = 0) => new THREE.Vector3(w.x ?? along, y, w.z ?? along).addScaledVector(out, off);
@@ -387,7 +392,7 @@ export function addDressing(level: Level, scene: THREE.Scene): (time: number) =>
       }
 
       // Ivy hanging from the top (just below the landing trim) or from a sill row.
-      const ivyCount = rnd() < 0.45 ? 1 + Math.floor(rnd() * 3) : 0;
+      const ivyCount = rnd() < 0.45 && !indoors ? 1 + Math.floor(rnd() * 3) : 0;
       for (let i = 0; i < ivyCount; i++) {
         const a = along();
         const width = 0.8 + rnd() * 1.4;
@@ -418,6 +423,13 @@ export function addDressing(level: Level, scene: THREE.Scene): (time: number) =>
     const head = post.id.includes("-lit") ? lantern(9, 3.5) : deadLantern();
     head.position.set(post.position.x, top - 0.05, post.position.z);
     scene.add(head);
+  }
+
+  // Lanterns standing on tables and benches (parts whose id ends in "-top-lantern").
+  for (const top of level.pieces.filter((p) => p.id.endsWith("-top-lantern"))) {
+    const l = lantern(7, 2.6);
+    l.position.set(top.position.x + 0.15, top.position.y + top.size.y / 2, top.position.z);
+    scene.add(l);
   }
 
   // Fountains: the bowl overflows in a thin curtain into the basin, and water

@@ -25,6 +25,7 @@ import { addDressing } from "./render/dressing.ts";
 import { addCrows } from "./render/crows.ts";
 import { addAtmosphere, capeWind } from "./render/atmosphere.ts";
 import { addNightLife } from "./render/nightLife.ts";
+import { addInteriors } from "./render/interiors.ts";
 import { ENDING, FIGURE_LINES, OPENING } from "./story.ts";
 import { Screens } from "./ui/screens.ts";
 import { VERSION } from "./version.ts";
@@ -115,7 +116,10 @@ async function boot(): Promise<void> {
     scene.add(grid);
   }
   const updateBeacon = LEVEL.zones.length > 0 ? addBeacon(scene) : () => {};
-  if (LEVEL.zones.length > 0) addSkyline(scene);
+  if (LEVEL.zones.length > 0) {
+    addSkyline(scene);
+    addInteriors(scene);
+  }
   const updateWindows = LEVEL.zones.length > 0 ? addArchitecture(LEVEL, scene) : () => {};
   const updateDressing = LEVEL.zones.length > 0 ? addDressing(LEVEL, scene) : () => {};
   const crows = LEVEL.zones.length > 0 ? addCrows(LEVEL, scene) : null;

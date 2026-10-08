@@ -27,8 +27,9 @@ export interface Piece {
   surface: Surface;
   motion: Motion;
   /**
-   * Look only: "crate", "barrel", "stone", "water" or "iron" for props and
-   * the surroundings; "invisible" has a collider but nothing is drawn.
+   * Look only: "crate", "barrel", "stone", "water", "iron", "wood",
+   * "cloth" or "rust" for props, furniture and the surroundings;
+   * "invisible" has a collider but nothing is drawn.
    */
   material?: string;
 }
@@ -68,6 +69,8 @@ export interface Zone {
   pieces: Piece[];
   restSpots: RestSpot[];
   figures: Figure[];
+  /** Enclosed rooms (box regions): the wall faces inside them get no windows or ivy. */
+  rooms?: { min: Vec3; max: Vec3 }[];
 }
 
 /** What the game builds and runs: one world, made of zones or standing alone. */

@@ -240,6 +240,16 @@ function windowStone(): THREE.BufferGeometry {
   return mergeGeometries([frame.toNonIndexed(), sill.toNonIndexed()])!;
 }
 
+/** True when the wall face at `x`/`z` (one of them null: the face runs along it) with outward turn `yaw` faces into one of `level`'s rooms. */
+export function facesRoom(level: Level, w: { yaw: number; x: number | null; z: number | null; from: number; to: number }, y0: number, y1: number): boolean {
+  const out = new THREE.Vector3(0, 0, 1).applyAxisAngle(new THREE.Vector3(0, 1, 0), w.yaw);
+  const mid = (w.from + w.to) / 2;
+  const p = new THREE.Vector3(w.x ?? mid, (y0 + y1) / 2, w.z ?? mid).addScaledVector(out, 0.5);
+  return (level.rooms ?? []).some(
+    (r) => p.x > r.min.x && p.x < r.max.x && p.z > r.min.z && p.z < r.max.z && p.y > r.min.y - 1 && p.y < r.max.y + 1,
+  );
+}
+
 const isPlainBox = (p: Piece) =>
   p.shape === "box" && p.motion.kind === "none" && p.rotation.x === 0 && p.rotation.y === 0 && p.rotation.z === 0;
 
@@ -276,7 +286,7 @@ export function addArchitecture(level: Level, scene: THREE.Scene): (courier: { x
     ];
     for (const w of walls) {
       const length = w.to - w.from;
-      if (length < WINDOW_MIN_WALL) continue;
+      if (length < WINDOW_MIN_WALL || facesRoom(level, w, y0, y1)) continue;
       const q = new THREE.Quaternion().setFromAxisAngle(up, w.yaw);
       const at = (along: number, y: number) => new THREE.Vector3(w.x ?? along, y, w.z ?? along);
       const put = (geo: THREE.BufferGeometry, along: number, y: number) =>
@@ -485,8 +495,8 @@ export function trimGeometry(
   return g;
 }
 
-/** Weathered planks with dark gaps and a cross brace: one crate face per tile. */
-function woodTexture(): THREE.Texture {
+/** Weathered planks with dark gaps and a cross brace: one crate face per tile; plain planks without `brace`. */
+function woodTexture(brace = true): THREE.Texture {
   return canvasTexture((g, n, rnd) => {
     const planks = 4;
     for (let i = 0; i < planks; i++) {
@@ -501,6 +511,7 @@ function woodTexture(): THREE.Texture {
       g.fillStyle = "rgba(20,14,8,0.8)";
       g.fillRect(0, (i * n) / planks, n, 1);
     }
+    if (!brace) return;
     g.fillStyle = "rgba(40,28,16,0.9)";
     g.fillRect(0, 0, n, 4);
     g.fillRect(0, n - 4, n, 4);
@@ -530,7 +541,7 @@ function barrelTexture(): THREE.Texture {
   }, 71);
 }
 
-export type PropMaterial = "crate" | "barrel" | "stone" | "water" | "iron";
+export type PropMaterial = "crate" | "barrel" | "stone" | "water" | "iron" | "wood" | "cloth" | "rust";
 
 /** The look of a prop (level data `material`), and its texture tile size in metres. */
 export function propLook(material: PropMaterial): { mesh: THREE.Material; tile: number } {
@@ -545,5 +556,11 @@ export function propLook(material: PropMaterial): { mesh: THREE.Material; tile: 
       return { mesh: new THREE.MeshPhongMaterial({ color: 0x24323b, specular: 0x7c8c98, shininess: 90 }), tile: TILE_METRES };
     case "iron":
       return { mesh: new THREE.MeshLambertMaterial({ color: 0x1e1f22 }), tile: TILE_METRES };
+    case "wood":
+      return { mesh: new THREE.MeshLambertMaterial({ map: woodTexture(false), color: 0xcfc4b4 }), tile: 0.8 };
+    case "cloth":
+      return { mesh: new THREE.MeshLambertMaterial({ color: 0x4a4744 }), tile: TILE_METRES };
+    case "rust":
+      return { mesh: new THREE.MeshLambertMaterial({ map: barrelTexture(), color: 0xb8a89a }), tile: 1.5 };
   }
 }
