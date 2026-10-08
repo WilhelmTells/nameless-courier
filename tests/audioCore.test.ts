@@ -12,7 +12,7 @@ test("volumes fall back to the default when missing or broken", () => {
 });
 
 test("volumes are clamped to 0..1", () => {
-  assert.deepEqual(parseVolumes({ master: 2, ambience: -1, effects: 0.3 }), { master: 1, ambience: 0, effects: 0.3 });
+  assert.deepEqual(parseVolumes({ master: 2, ambience: -1, effects: 0.3, rain: 0.5 }), { master: 1, ambience: 0, effects: 0.3, rain: 0.5 });
 });
 
 test("the wind grows with height and strength, and is shut out indoors", () => {

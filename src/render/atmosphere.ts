@@ -15,7 +15,7 @@ function random(seed: number): () => number {
 }
 
 /** Where the wind blows (horizontal, unit). */
-const WIND_DIR = new THREE.Vector3(-0.8, 0, 0.6).normalize();
+export const WIND_DIR = new THREE.Vector3(-0.8, 0, 0.6).normalize();
 const MIST_BANKS = 22;
 /** Mist drifts in a box this big around the courier, m (half sizes). */
 const MIST_BOX = { x: 32, y: 14, z: 32 };

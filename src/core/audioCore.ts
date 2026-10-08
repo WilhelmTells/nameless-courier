@@ -9,9 +9,11 @@ export interface Volumes {
   ambience: number;
   /** The pogo and the figures, 0..1. */
   effects: number;
+  /** The rain, 0..1. */
+  rain: number;
 }
 
-export const DEFAULT_VOLUMES: Volumes = { master: 0.8, ambience: 0.8, effects: 0.8 };
+export const DEFAULT_VOLUMES: Volumes = { master: 0.8, ambience: 0.8, effects: 0.8, rain: 0.6 };
 
 const clamp01 = (v: number) => Math.min(1, Math.max(0, v));
 
@@ -22,7 +24,7 @@ export function parseVolumes(raw: unknown): Volumes {
     const x = v[key];
     return typeof x === "number" && Number.isFinite(x) ? clamp01(x) : DEFAULT_VOLUMES[key];
   };
-  return { master: pick("master"), ambience: pick("ambience"), effects: pick("effects") };
+  return { master: pick("master"), ambience: pick("ambience"), effects: pick("effects"), rain: pick("rain") };
 }
 
 /** Height at which the wind is at its loudest, m. */

@@ -27,10 +27,12 @@ import { addAtmosphere, capeWind } from "./render/atmosphere.ts";
 import { addNightLife } from "./render/nightLife.ts";
 import { addInteriors } from "./render/interiors.ts";
 import { addClubDoor } from "./render/clubDoor.ts";
+import { addRain } from "./render/rain.ts";
 import { addAmbience } from "./audio/ambience.ts";
 import { addClub } from "./audio/club.ts";
 import { Sound } from "./audio/engine.ts";
 import { addMurmur } from "./audio/murmur.ts";
+import { addRainSound } from "./audio/rain.ts";
 import { addPogoSounds } from "./audio/pogoSounds.ts";
 import { WATER } from "./levels/surroundings.ts";
 import { ENDING, FIGURE_LINES, OPENING } from "./story.ts";
@@ -148,6 +150,10 @@ async function boot(): Promise<void> {
   const updatePogoSounds = addPogoSounds(sound);
   const club = addClub(sound, LEVEL.clubs ?? []);
   const updateMurmur = addMurmur(sound, LEVEL.figures);
+  // It rains all the time on the structure (user).
+  const raining = LEVEL.zones.length > 0;
+  const updateRain = raining ? addRain(scene, LEVEL.rooms ?? []) : () => {};
+  const updateRainSound = raining ? addRainSound(sound, LEVEL.rooms ?? []) : () => {};
   const updateClubDoor = LEVEL.zones.length > 0 ? addClubDoor(scene) : () => {};
 
   const levelWorld = buildLevel(LEVEL, scene, physics);
@@ -372,6 +378,7 @@ async function boot(): Promise<void> {
       { label: "Volume", value: v.master, change: volume("master") },
       { label: "Ambience", value: v.ambience, change: volume("ambience") },
       { label: "Effects", value: v.effects, change: volume("effects") },
+      { label: "Rain", value: v.rain, change: volume("rain") },
     ]);
   };
   // Fallen into the water: fade out, start again at the bottom, fade back in.
@@ -629,6 +636,8 @@ async function boot(): Promise<void> {
     // The pogo and the figures are heard only in play; menus keep the ambience.
     sound.setMenu(mode === "title" || mode === "paused");
     sound.listen(camera);
+    updateRain(camera.position, time / 1000, Math.min(0.1, Math.max(0, frameDt)));
+    updateRainSound(tip, time / 1000);
     updateAmbience(tip, time / 1000);
     club.update(tip);
     updateClubDoor(club.pulse(time / 1000));
