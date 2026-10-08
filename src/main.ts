@@ -9,6 +9,7 @@ import { advanceLoop } from "./core/loopCore.ts";
 import { followYaw } from "./core/cameraCore.ts";
 import { stickAxis } from "./core/pogoCore.ts";
 import { inRestSpot, standAmount } from "./core/restCore.ts";
+import { restOffset, restSwing, stepSwing, type SwingConfig } from "./core/swingCore.ts";
 import { OrbitCamera } from "./game/camera.ts";
 import { controlMode, initInput, onControlModeChange, readInput, setStanding, type ControlMode } from "./game/input.ts";
 import { LandingMarker } from "./game/landingMarker.ts";
@@ -334,6 +335,33 @@ async function boot(): Promise<void> {
   const facingTurn = new THREE.Quaternion();
   const up = new THREE.Vector3(0, 1, 0);
   const axis = new THREE.Vector3();
+  // The cape's hem swings on a spring below the shoulders, this far up the
+  // staff from the tip (visual only).
+  const CAPE_ANCHOR = 1.45;
+  const capeConfig = (): SwingConfig => ({
+    stiffness: pogoConfig.capeStiffness,
+    damping: pogoConfig.capeDamping,
+    maxSwing: pogoConfig.capeMaxSwing,
+  });
+  const capeAnchor = () => {
+    const a = stickAxis(pogo.lean);
+    return { x: pogo.pos.x + a.x * CAPE_ANCHOR, y: pogo.pos.y + a.y * CAPE_ANCHOR, z: pogo.pos.z + a.z * CAPE_ANCHOR };
+  };
+  let cape = restSwing(pogoConfig.gravity, capeConfig());
+  let prevCapeOffset = cape.offset;
+  let lastAnchor = capeAnchor();
+  let anchorVel = { x: 0, y: 0, z: 0 };
+  const stepCape = (dt: number) => {
+    const p = capeAnchor();
+    const v = { x: (p.x - lastAnchor.x) / dt, y: (p.y - lastAnchor.y) / dt, z: (p.z - lastAnchor.z) / dt };
+    const dv = { x: v.x - anchorVel.x, y: v.y - anchorVel.y, z: v.z - anchorVel.z };
+    lastAnchor = p;
+    anchorVel = v;
+    prevCapeOffset = cape.offset;
+    cape = stepSwing(cape, dv, pogoConfig.gravity, capeConfig(), dt);
+  };
+  const capeTrail = new THREE.Vector3();
+  const rigTurnBack = new THREE.Quaternion();
   const tip = new THREE.Vector3();
   const rider = new THREE.Vector3();
   let accumulator = 0;
@@ -384,6 +412,7 @@ async function boot(): Promise<void> {
         pogo.step(input, orbit.yaw, SIM_DT);
         stats.time += SIM_DT;
       }
+      stepCape(SIM_DT);
       levelWorld.advance(worldTime());
       physics.step();
       figures = stepFigures(figures, LEVEL.figures, FIGURE_LINES, pogo.pos, SIM_DT);
@@ -416,6 +445,16 @@ async function boot(): Promise<void> {
       .setFromUnitVectors(up, axis.set(s.x, s.y, s.z))
       .multiply(facingTurn.setFromAxisAngle(up, facing));
     rig.setStand(standAmount(pogo.ride, pogoConfig));
+    // The hem's swing, from world space into the rig's.
+    const capeRest = restOffset(pogoConfig.gravity, capeConfig());
+    capeTrail
+      .set(
+        prevCapeOffset.x + (cape.offset.x - prevCapeOffset.x) * a - capeRest.x,
+        prevCapeOffset.y + (cape.offset.y - prevCapeOffset.y) * a - capeRest.y,
+        prevCapeOffset.z + (cape.offset.z - prevCapeOffset.z) * a - capeRest.z,
+      )
+      .applyQuaternion(rigTurnBack.copy(rig.group.quaternion).invert());
+    rig.setCape(capeTrail, time / 1000, Math.hypot(pogo.vel.x, pogo.vel.y, pogo.vel.z));
 
     // Squash and stretch on launch (visual only).
     const sq = pogo.sinceLaunch < pogoConfig.squashTime ? Math.sin((Math.PI * pogo.sinceLaunch) / pogoConfig.squashTime) : 0;

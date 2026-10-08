@@ -53,6 +53,12 @@ export interface PogoConfig {
   squashTime: number;
   /** Visual only: time constant of the courier turning to face the lean, s. */
   turnTime: number;
+  /** Visual only: stiffness of the cape's swing, 1/s². Higher swings faster and sags less. */
+  capeStiffness: number;
+  /** Visual only: damping of the cape's swing, 1/s. Higher settles sooner. */
+  capeDamping: number;
+  /** Visual only: how far the cape's hem may swing from where it hangs, m. */
+  capeMaxSwing: number;
   /** Surfaces whose normal is more than this far from up are walls, degrees. */
   wallAngle: number;
   /** Largest angle between stick and surface normal for a bounce on floors and slopes, degrees. */
@@ -116,6 +122,9 @@ export const DEFAULT_POGO: Readonly<PogoConfig> = {
   leanPush: 1,
   squashTime: 0.08,
   turnTime: 0.2,
+  capeStiffness: 45,
+  capeDamping: 4,
+  capeMaxSwing: 0.28,
   wallAngle: 60,
   floorContactLimit: 65,
   slopeBlend: 0.5,
