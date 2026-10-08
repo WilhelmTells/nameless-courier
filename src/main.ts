@@ -21,6 +21,7 @@ import { createFigure } from "./render/figureRig.ts";
 import { createPogoRig } from "./render/pogoRig.ts";
 import { RetroPass } from "./render/retroPass.ts";
 import { addBeacon, groundMaterial } from "./render/worldLook.ts";
+import { addDressing } from "./render/dressing.ts";
 import { ENDING, FIGURE_LINES, OPENING } from "./story.ts";
 import { Screens } from "./ui/screens.ts";
 import { VERSION } from "./version.ts";
@@ -108,6 +109,7 @@ async function boot(): Promise<void> {
     scene.add(grid);
   }
   const updateBeacon = LEVEL.zones.length > 0 ? addBeacon(scene) : () => {};
+  const updateDressing = LEVEL.zones.length > 0 ? addDressing(LEVEL, scene) : () => {};
 
   const levelWorld = buildLevel(LEVEL, scene, physics);
   // Build the query structures once, so the pogo, camera and marker can cast
@@ -439,6 +441,7 @@ async function boot(): Promise<void> {
     levelWorld.render(worldTime() - SIM_DT * (1 - a));
     for (const f of figureRigs) f.update(worldTime());
     updateBeacon(time / 1000);
+    updateDressing(time / 1000);
     tip.set(
       pogo.prevPos.x + (pogo.pos.x - pogo.prevPos.x) * a,
       pogo.prevPos.y + (pogo.pos.y - pogo.prevPos.y) * a,
