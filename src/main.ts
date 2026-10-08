@@ -747,6 +747,12 @@ async function boot(): Promise<void> {
   });
 }
 
+// Installable and playable offline (the built site only; the dev server
+// changes its files all the time).
+if (import.meta.env.PROD && "serviceWorker" in navigator) {
+  navigator.serviceWorker.register(`${import.meta.env.BASE_URL}sw.js`).catch(() => {});
+}
+
 boot().catch((error: unknown) => {
   // Without WebGL or WebAssembly the game cannot start: say so instead of loading for ever.
   const loading = document.querySelector("#loading");

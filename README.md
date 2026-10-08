@@ -11,6 +11,10 @@ keyboard.
 
 **[▶ Play](https://wilhelmtells.github.io/nameless-courier/)**
 
+To keep it as an app that also plays offline, install it from the browser:
+the install button in Chrome's or Edge's address bar, or *File → Add to Dock*
+in Safari.
+
 ![The courier in the yard at the foot of the structure, in the rain](screenshots/start.jpg)
 
 ---
