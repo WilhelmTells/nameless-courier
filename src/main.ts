@@ -30,6 +30,7 @@ import { addClubDoor } from "./render/clubDoor.ts";
 import { addAmbience } from "./audio/ambience.ts";
 import { addClub } from "./audio/club.ts";
 import { Sound } from "./audio/engine.ts";
+import { addMurmur } from "./audio/murmur.ts";
 import { addPogoSounds } from "./audio/pogoSounds.ts";
 import { ENDING, FIGURE_LINES, OPENING } from "./story.ts";
 import type { Volumes } from "./core/audioCore.ts";
@@ -140,6 +141,7 @@ async function boot(): Promise<void> {
   const updateAmbience = addAmbience(sound, LEVEL.rooms ?? []);
   const updatePogoSounds = addPogoSounds(sound);
   const club = addClub(sound, LEVEL.clubs ?? []);
+  const updateMurmur = addMurmur(sound, LEVEL.figures);
   const updateClubDoor = LEVEL.zones.length > 0 ? addClubDoor(scene) : () => {};
 
   const levelWorld = buildLevel(LEVEL, scene, physics);
@@ -580,6 +582,8 @@ async function boot(): Promise<void> {
     showStats();
     showRideHint();
     showSpeech();
+    // The figure murmurs while its line is on screen.
+    updateMurmur(speechLine !== "" ? (figures.talk?.id ?? null) : null);
     setStanding(pogo.ride.phase !== "riding");
     chargeFill.style.width = `${pogo.charge.charge * 100}%`;
     chargeBar.classList.toggle("armed", pogo.charge.armed);

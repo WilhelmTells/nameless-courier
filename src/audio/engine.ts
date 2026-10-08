@@ -13,6 +13,8 @@ import { SETTINGS_KEY } from "../game/input.ts";
 
 /** Ambience level while a menu is open (the effects are silent). */
 const MENU_AMBIENCE = 0.6;
+/** Overall gain before the limiter: the generated sounds are quiet on their own. */
+const OUTPUT = 2;
 /** Length of the reverb's tail, s. */
 const REVERB_TIME = 2.8;
 
@@ -170,7 +172,7 @@ export class Sound {
     const t = ctx.currentTime;
     const set = (p: AudioParam, v: number) => (now ? p.setValueAtTime(v, t) : p.setTargetAtTime(v, t, 0.08));
     // Slider positions feel more even squared (loudness is not linear).
-    set(this.master.gain, this.volumes.master ** 2);
+    set(this.master.gain, OUTPUT * this.volumes.master ** 2);
     set(this.ambienceBus.gain, this.volumes.ambience ** 2);
     set(this.effectsBus.gain, this.volumes.effects ** 2);
     set(this.menuAmbience.gain, this.inMenu ? MENU_AMBIENCE : 1);
