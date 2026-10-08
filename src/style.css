@@ -106,6 +106,7 @@ body {
 #screen-heading:empty,
 #screen-text:empty,
 #screen-info:empty,
+#screen-sliders:empty,
 #screen-menu:empty {
   display: none;
 }
@@ -123,6 +124,29 @@ body {
 #screen-info {
   white-space: pre;
   text-align: left;
+}
+
+#screen-sliders {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+#screen-sliders label {
+  display: grid;
+  grid-template-columns: 9ch 160px 4ch;
+  align-items: center;
+  gap: 12px;
+  text-align: left;
+}
+
+#screen-sliders input {
+  width: 100%;
+  accent-color: #c8c6c0;
+}
+
+#screen-sliders span:last-child {
+  text-align: right;
 }
 
 #screen-menu {

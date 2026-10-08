@@ -22,7 +22,7 @@ export interface PogoInput {
   toggleRide: boolean;
 }
 
-const SETTINGS_KEY = "courier.settings";
+export const SETTINGS_KEY = "courier.settings";
 
 const held = new Set<string>();
 let mode: ControlMode = loadMode();

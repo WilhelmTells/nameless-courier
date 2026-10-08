@@ -6,11 +6,19 @@ export interface MenuItem {
   action: () => void;
 }
 
+export interface Slider {
+  label: string;
+  /** 0..1 */
+  value: number;
+  change: (value: number) => void;
+}
+
 export class Screens {
   private readonly root: HTMLDivElement;
   private readonly heading: HTMLDivElement;
   private readonly text: HTMLDivElement;
   private readonly info: HTMLDivElement;
+  private readonly sliders: HTMLDivElement;
   private readonly menu: HTMLDivElement;
   private lines: HTMLParagraphElement[] = [];
 
@@ -25,6 +33,7 @@ export class Screens {
     this.heading = div("screen-heading", this.root);
     this.text = div("screen-text", this.root);
     this.info = div("screen-info", this.root);
+    this.sliders = div("screen-sliders", this.root);
     this.menu = div("screen-menu", this.root);
     this.hide();
   }
@@ -40,6 +49,7 @@ export class Screens {
     this.info.textContent = "";
     this.setLines([]);
     this.setMenu([]);
+    this.setSliders([]);
     this.setBlack(black);
     this.setFade(1);
   }
@@ -86,6 +96,31 @@ export class Screens {
   /** Text under the lines, such as the run's stats. */
   setInfo(text: string): void {
     this.info.textContent = text;
+  }
+
+  /** Labelled sliders above the menu (the volumes). */
+  setSliders(sliders: Slider[]): void {
+    this.sliders.replaceChildren(
+      ...sliders.map(({ label, value, change }) => {
+        const row = document.createElement("label");
+        const name = document.createElement("span");
+        name.textContent = label;
+        const input = document.createElement("input");
+        input.type = "range";
+        input.min = "0";
+        input.max = "100";
+        input.step = "5";
+        input.value = String(Math.round(value * 100));
+        const shown = document.createElement("span");
+        shown.textContent = input.value;
+        input.addEventListener("input", () => {
+          shown.textContent = input.value;
+          change(Number(input.value) / 100);
+        });
+        row.append(name, input, shown);
+        return row;
+      }),
+    );
   }
 
   setMenu(items: MenuItem[]): void {

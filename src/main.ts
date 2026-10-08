@@ -26,7 +26,9 @@ import { addCrows } from "./render/crows.ts";
 import { addAtmosphere, capeWind } from "./render/atmosphere.ts";
 import { addNightLife } from "./render/nightLife.ts";
 import { addInteriors } from "./render/interiors.ts";
+import { Sound } from "./audio/engine.ts";
 import { ENDING, FIGURE_LINES, OPENING } from "./story.ts";
+import type { Volumes } from "./core/audioCore.ts";
 import { Screens } from "./ui/screens.ts";
 import { VERSION } from "./version.ts";
 
@@ -74,6 +76,8 @@ function writeStorage(key: string, value: string | null): void {
 
 async function boot(): Promise<void> {
   document.querySelector<HTMLDivElement>("#version")!.textContent = VERSION;
+  // First, so the first click or key press (even on the title) starts the sound.
+  const sound = new Sound();
 
   await RAPIER.init();
   const physics = new RAPIER.World({ x: 0, y: -pogoConfig.gravity, z: 0 });
@@ -345,6 +349,13 @@ async function boot(): Promise<void> {
       { label: `${mark("wasd")}Keyboard (W A S D)`, action: pick("wasd") },
       { label: "Back", action: back },
     ]);
+    const volume = (key: keyof Volumes) => (v: number) => sound.setVolumes({ ...sound.getVolumes(), [key]: v });
+    const v = sound.getVolumes();
+    screens.setSliders([
+      { label: "Volume", value: v.master, change: volume("master") },
+      { label: "Ambience", value: v.ambience, change: volume("ambience") },
+      { label: "Effects", value: v.effects, change: volume("effects") },
+    ]);
   };
   const pause = () => {
     if (mode !== "play") return;
@@ -563,6 +574,10 @@ async function boot(): Promise<void> {
     setStanding(pogo.ride.phase !== "riding");
     chargeFill.style.width = `${pogo.charge.charge * 100}%`;
     chargeBar.classList.toggle("armed", pogo.charge.armed);
+
+    // The pogo and the figures are heard only in play; menus keep the ambience.
+    sound.setMenu(mode === "title" || mode === "paused");
+    sound.listen(camera);
 
     retro.render(scene, camera);
   });
