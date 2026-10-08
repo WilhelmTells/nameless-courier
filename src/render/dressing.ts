@@ -113,7 +113,7 @@ const isPlainBox = (p: Piece) =>
 const MIN_WALL = 6;
 /** Water only runs within this distance of a rest spot, m. */
 const WATER_NEAR_REST = 18;
-const MAX_STREAMS = 8;
+const MAX_STREAMS = 12;
 
 /** Adds the dressing to `scene`; returns the update that runs the water. */
 export function addDressing(level: Level, scene: THREE.Scene): (time: number) => void {
@@ -150,6 +150,22 @@ export function addDressing(level: Level, scene: THREE.Scene): (time: number) =>
       return Math.hypot(p.x - cx, p.z - cz) < WATER_NEAR_REST && Math.abs(p.y - r.min.y) < 12;
     });
 
+  /** Water falling from `mouth` to the next surface below, splashing there; only near rest spots, and only a few. */
+  const pour = (mouth: THREE.Vector3): boolean => {
+    if (streams.length / 2 >= MAX_STREAMS || !nearRest(mouth)) return false;
+    const floor = floorBelow(mouth);
+    const drop = mouth.y - floor;
+    for (const spin of [0, Math.PI / 2]) {
+      const sheet = new THREE.PlaneGeometry(0.07, drop).toNonIndexed();
+      const uv = sheet.attributes.uv;
+      for (let i = 0; i < uv.count; i++) uv.setXY(i, uv.getX(i) * 0.25, uv.getY(i) * drop * 0.8);
+      sheet.rotateY(spin);
+      streams.push(sheet.translate(mouth.x, mouth.y - drop / 2, mouth.z));
+    }
+    splashes.push(new THREE.Vector3(mouth.x, floor + 0.05, mouth.z));
+    return true;
+  };
+
   for (const piece of boxes) {
     if (piece.size.y < MIN_WALL) continue;
     const rnd = random(hash(piece.id) + 7);
@@ -157,6 +173,7 @@ export function addDressing(level: Level, scene: THREE.Scene): (time: number) =>
     const z0 = piece.position.z - piece.size.z / 2, z1 = piece.position.z + piece.size.z / 2;
     const y0 = piece.position.y - piece.size.y / 2, y1 = piece.position.y + piece.size.y / 2;
     const high = y1 > 100;
+    const more = random(hash(piece.id) + 13);
     const walls = [
       { yaw: Math.PI / 2, x: x1, z: null, from: z0, to: z1 },
       { yaw: -Math.PI / 2, x: x0, z: null, from: z0, to: z1 },
@@ -198,20 +215,61 @@ export function addDressing(level: Level, scene: THREE.Scene): (time: number) =>
         const turn = q.clone().multiply(new THREE.Quaternion().setFromAxisAngle(new THREE.Vector3(1, 0, 0), Math.PI / 2 - 0.15));
         put(pipes, new THREE.CylinderGeometry(0.1, 0.1, 0.38, 7).toNonIndexed(), at(a, y, 0.19), turn);
         put(pipes, new THREE.CylinderGeometry(0.16, 0.16, 0.04, 7).toNonIndexed(), at(a, y, 0.02), turn);
-        const mouth = at(a, y - 0.03, 0.38);
-        if (streams.length / 2 < MAX_STREAMS && nearRest(mouth)) {
-          // Water falls to the next surface below and splashes there.
-          const floor = floorBelow(mouth);
-          const drop = mouth.y - floor;
-          for (const spin of [0, Math.PI / 2]) {
-            const sheet = new THREE.PlaneGeometry(0.07, drop).toNonIndexed();
-            const uv = sheet.attributes.uv;
-            for (let i = 0; i < uv.count; i++) uv.setXY(i, uv.getX(i) * 0.25, uv.getY(i) * drop * 0.8);
-            sheet.rotateY(spin);
-            streams.push(sheet.translate(mouth.x, mouth.y - drop / 2, mouth.z));
-          }
-          splashes.push(new THREE.Vector3(mouth.x, floor + 0.05, mouth.z));
+        if (pour(at(a, y - 0.03, 0.38))) {
           put(stains, new THREE.PlaneGeometry(0.6, Math.min(5, y - y0)).toNonIndexed(), at(a, y - Math.min(5, y - y0) / 2, 0.02));
+        }
+      }
+
+      // More pipework (user: "even more pipes, also sticking horizontally
+      // out of the wall"), from its own random numbers so the rest stays put.
+      const floors = Math.max(1, Math.floor((y1 - y0) / 5));
+      // Pipe height in a floor: above the windows' arches, below the next band.
+      const pipeY = (floor: number) => Math.ceil((y0 + 1) / 5) * 5 + floor * 5 + 3.6;
+      const extraDrains = more() < 0.5 ? 1 + (more() < 0.4 ? 1 : 0) : 0;
+      for (let i = 0; i < extraDrains; i++) {
+        const a = w.from + 1 + more() * (length - 2);
+        const top = y1 - 0.6 - more() * 3;
+        const len = top - y0;
+        if (len < 2) continue;
+        const r = 0.05 + more() * 0.04;
+        put(pipes, new THREE.CylinderGeometry(r, r, len, 6).toNonIndexed(), at(a, y0 + len / 2, 0.08 + r));
+        for (let y = y0 + 0.8; y < top; y += 2.5) put(pipes, new THREE.BoxGeometry(0.18, 0.05, 0.08 + r).toNonIndexed(), at(a, y, (0.08 + r) / 2));
+        // An elbow into the wall at the top.
+        put(pipes, new THREE.CylinderGeometry(r, r, 0.08 + r, 6).toNonIndexed().rotateX(Math.PI / 2), at(a, top, (0.08 + r) / 2));
+      }
+      // Runs along the wall between floors, on brackets.
+      if (more() < 0.75) {
+        const runs = 1 + Math.floor(more() * 3);
+        for (let i = 0; i < runs; i++) {
+          const y = pipeY(Math.floor(more() * floors));
+          if (y > y1 - 0.8) continue;
+          const len = Math.min(length - 1, 3 + more() * 9);
+          const a = w.from + 0.5 + len / 2 + more() * (length - 1 - len);
+          const r = 0.05 + more() * 0.05;
+          put(pipes, new THREE.CylinderGeometry(r, r, len, 6).toNonIndexed().rotateZ(Math.PI / 2), at(a, y, 0.1 + r));
+          for (let d = -len / 2 + 0.4; d < len / 2; d += 1.6) put(pipes, new THREE.BoxGeometry(0.06, 0.18, 0.1 + r).toNonIndexed(), at(a + d, y, (0.1 + r) / 2));
+          // Where a run ends it turns into the wall.
+          for (const end of [-1, 1]) put(pipes, new THREE.CylinderGeometry(r, r, 0.1 + r, 6).toNonIndexed().rotateX(Math.PI / 2), at(a + (end * len) / 2, y, (0.1 + r) / 2));
+        }
+      }
+      // Pipes sticking straight out: thin, ending in an elbow bending down or a broken end.
+      const juts = more() < 0.8 ? 1 + Math.floor(more() * 4) : 0;
+      for (let i = 0; i < juts; i++) {
+        const a = w.from + 1 + more() * (length - 2);
+        const y = pipeY(Math.floor(more() * floors)) + (more() - 0.5) * 0.6;
+        if (y > y1 - 0.8 || y < y0 + 1.5) continue;
+        const len = 0.5 + more() * 0.7;
+        const r = 0.05 + more() * 0.04;
+        put(pipes, new THREE.CylinderGeometry(r, r, len, 6).toNonIndexed().rotateX(Math.PI / 2), at(a, y, len / 2));
+        put(pipes, new THREE.CylinderGeometry(r * 1.7, r * 1.7, 0.04, 6).toNonIndexed().rotateX(Math.PI / 2), at(a, y, 0.02));
+        if (more() < 0.55) {
+          // Elbow down, open at the bottom.
+          put(pipes, new THREE.CylinderGeometry(r, r, 0.4, 6).toNonIndexed(), at(a, y - 0.2 + r, len - r));
+          if (more() < 0.4) pour(at(a, y - 0.4 + r, len - r));
+        } else {
+          // Snapped off: a short piece hanging at an angle from the end.
+          put(pipes, new THREE.CylinderGeometry(r, r, 0.25, 6).toNonIndexed().rotateX(Math.PI / 2 + 0.6), at(a, y - 0.06, len + 0.08));
+          if (more() < 0.3) pour(at(a, y - 0.12, len + 0.18));
         }
       }
 
