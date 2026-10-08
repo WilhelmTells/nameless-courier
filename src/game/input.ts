@@ -3,7 +3,8 @@
 //
 // Two control modes: "wasd" leans with the keys and the mouse orbits the
 // camera; "mouse" leans with the mouse, charges with the left button, and
-// orbits the camera only while the right button is held. C switches.
+// orbits the camera only while the right button is held. Mouse is the
+// default; the settings (pause menu or title) switch.
 // E gets off the pogo at a rest spot and back on; while standing, the mouse
 // orbits the camera in both modes.
 
@@ -36,9 +37,9 @@ const listeners: ((mode: ControlMode) => void)[] = [];
 function loadMode(): ControlMode {
   try {
     const saved = JSON.parse(localStorage.getItem(SETTINGS_KEY) ?? "{}") as { controls?: unknown };
-    return saved.controls === "mouse" ? "mouse" : "wasd";
+    return saved.controls === "wasd" ? "wasd" : "mouse";
   } catch {
-    return "wasd";
+    return "mouse";
   }
 }
 
@@ -93,7 +94,6 @@ export function initInput(canvas: HTMLCanvasElement): void {
     if (isTyping(e.target)) return;
     held.add(e.code);
     if (e.code === "Space") e.preventDefault();
-    if (e.code === "KeyC" && !e.repeat) setControlMode(mode === "wasd" ? "mouse" : "wasd");
     if (e.code === "KeyE" && !e.repeat) rideToggle = true;
   });
   window.addEventListener("keyup", (e) => held.delete(e.code));

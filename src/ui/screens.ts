@@ -55,14 +55,14 @@ export class Screens {
 
   /** The title and a menu. */
   title(name: string, items: MenuItem[]): void {
-    this.show(0.6);
+    this.show(0.78);
     this.heading.textContent = name;
     this.setMenu(items);
   }
 
   /** A question with a menu of answers. */
   ask(question: string, items: MenuItem[]): void {
-    this.show(0.6);
+    this.show(0.78);
     this.info.textContent = question;
     this.setMenu(items);
   }

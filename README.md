@@ -16,21 +16,20 @@ with keyboard and mouse.
 
 ## Controls
 
+**Mouse controls** (the default): moving the mouse tilts the stick, which
+stays where you leave it. Hold the left button (or Space) to charge, and
+hold the right button to orbit the camera. The camera turns to stay behind
+the direction you lean.
+
+**Keyboard controls** (switch in Settings): W A S D lean the stick relative
+to the camera, Space charges, and the mouse orbits the camera.
+
 | Input | Action |
 |---|---|
-| W A S D | Lean the stick (relative to the camera) |
-| Space (hold, release) | Charge a big jump |
-| Mouse | Orbit the camera (click to capture the mouse) |
 | Mouse wheel | Zoom |
 | R | Reset the camera: behind you, at the usual angle and distance |
-| Esc | Release the mouse |
-| C | Switch between keyboard and mouse controls |
 | E | Get off the pogo at a calm spot, and back on |
-
-**Mouse controls** (press C): moving the mouse tilts the stick, which stays
-where you leave it. Hold the left button (or Space) to charge, and hold the
-right button to orbit the camera. The camera turns to stay behind the
-direction you lean.
+| Esc | Pause (resume, settings, quit to title) |
 
 The pogo never stops bouncing. The lean at the moment the tip touches the
 ground decides where the next bounce goes; there is no control in the air.

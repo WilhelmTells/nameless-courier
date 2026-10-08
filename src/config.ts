@@ -235,7 +235,7 @@ export interface LookConfig {
 export const DEFAULT_LOOK: Readonly<LookConfig> = {
   pixelated: true,
   lines: 480,
-  colorLevels: 32,
+  colorLevels: 64,
 };
 
 export const lookConfig: LookConfig = { ...DEFAULT_LOOK };

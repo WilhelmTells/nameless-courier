@@ -11,7 +11,7 @@ import { stickAxis } from "./core/pogoCore.ts";
 import { inRestSpot, standAmount } from "./core/restCore.ts";
 import { restOffset, restSwing, stepSwing, type SwingConfig } from "./core/swingCore.ts";
 import { OrbitCamera } from "./game/camera.ts";
-import { controlMode, initInput, onControlModeChange, readInput, setStanding, type ControlMode } from "./game/input.ts";
+import { controlMode, initInput, readInput, setControlMode, setStanding, type ControlMode } from "./game/input.ts";
 import { LandingMarker } from "./game/landingMarker.ts";
 import { Pogo } from "./game/pogo.ts";
 import { buildLevel } from "./game/world.ts";
@@ -50,9 +50,10 @@ const SUMMIT_ID = "summit";
 /**
  * title: menu over the paused game. opening: the opening text, then a fade
  * into the game. play: the climb. ending: the summit was reached; the
- * timer has stopped and the ending text plays.
+ * timer has stopped and the ending text plays. paused: Esc during play; the
+ * mouse is free and the pause menu shows.
  */
-type Mode = "title" | "opening" | "play" | "ending";
+type Mode = "title" | "opening" | "play" | "paused" | "ending";
 
 function readStorage(key: string): string | null {
   try {
@@ -175,7 +176,7 @@ async function boot(): Promise<void> {
   const writeBest = () => writeStorage(BEST_KEY, JSON.stringify(bestTime === null ? { height: stats.best } : { height: stats.best, time: bestTime }));
   let sinceSave = 0;
   const save = () => {
-    if (!SAVES || mode !== "play") return;
+    if (!SAVES || (mode !== "play" && mode !== "paused")) return;
     const run: RunSave = { version: SAVE_VERSION, level: LEVEL.id, pogo: pogo.snapshot(), yaw: orbit.yaw, stats, figures: { ...figures.memory } };
     writeStorage(RUN_KEY, JSON.stringify(run));
     writeBest();
@@ -239,13 +240,6 @@ async function boot(): Promise<void> {
     if (line !== "") speech.textContent = line;
     speech.classList.toggle("shown", line !== "");
   };
-  const controlsLabel = document.querySelector<HTMLDivElement>("#controls")!;
-  const showControls = (mode: ControlMode) => {
-    controlsLabel.textContent =
-      mode === "mouse" ? "Mouse controls · right mouse: camera · C: switch" : "WASD controls · C: switch";
-  };
-  showControls(controlMode());
-  onControlModeChange(showControls);
 
   /** Debug fly camera; while it flies the game is paused. */
   let fly: FlyCamera | null = null;
@@ -315,8 +309,64 @@ async function boot(): Promise<void> {
     screens.title(TITLE, [
       ...(hasRun ? [{ label: "Continue", action: play }] : []),
       { label: "New run", action: hasRun ? confirmNew : startOpening },
+      { label: "Settings", action: () => showSettings(showTitle) },
     ]);
   };
+  /** How to play, for the settings screen (the on-screen hints are gone). */
+  const CONTROLS_HELP: Record<ControlMode, string> = {
+    mouse: [
+      "Mouse          lean (the stick stays where you leave it)",
+      "Left button    hold to charge, release to jump (or Space)",
+      "Right button   hold to turn the camera",
+      "Wheel          zoom",
+      "R              camera behind you",
+      "E              get off at a calm spot, and back on",
+      "Esc            pause",
+    ].join("\n"),
+    wasd: [
+      "W A S D        lean",
+      "Space          hold to charge, release to jump",
+      "Mouse          turn the camera",
+      "Wheel          zoom",
+      "R              camera behind you",
+      "E              get off at a calm spot, and back on",
+      "Esc            pause",
+    ].join("\n"),
+  };
+  /** Settings: the control scheme, and how it plays. `back` returns to where it was opened. */
+  const showSettings = (back: () => void) => {
+    const pick = (m: ControlMode) => () => {
+      setControlMode(m);
+      showSettings(back);
+    };
+    const mark = (m: ControlMode) => (controlMode() === m ? "● " : "○ ");
+    screens.ask(`Settings\n\nControls\n\n${CONTROLS_HELP[controlMode()]}`, [
+      { label: `${mark("mouse")}Mouse`, action: pick("mouse") },
+      { label: `${mark("wasd")}Keyboard (W A S D)`, action: pick("wasd") },
+      { label: "Back", action: back },
+    ]);
+  };
+  const pause = () => {
+    if (mode !== "play") return;
+    mode = "paused";
+    showPauseMenu();
+  };
+  const showPauseMenu = () => {
+    hud.hidden = true;
+    screens.title("Paused", [
+      { label: "Resume", action: play },
+      { label: "Settings", action: () => showSettings(showPauseMenu) },
+      { label: "Quit to title", action: () => (save(), showTitle()) },
+    ]);
+  };
+  // Esc frees the mouse: during play that pauses the game.
+  document.addEventListener("pointerlockchange", () => {
+    if (document.pointerLockElement !== canvas) pause();
+  });
+  window.addEventListener("keydown", (e) => {
+    if (e.code === "Escape" && mode === "play") pause();
+  });
+
   const startEnding = () => {
     mode = "ending";
     modeTime = 0;
