@@ -137,12 +137,13 @@ function build(a: Audio): (pogo: PogoHeard) => void {
         break;
       }
       case "mud": {
-        // A wet slap and a sinking gloop.
-        const f = filter("bandpass", 1800, 1.2);
-        f.frequency.setValueAtTime(1800, t);
-        f.frequency.exponentialRampToValueAtTime(300, t + 0.3);
-        burst(t, f, env(t, level * 1.1, 0.3, 0.005), 0.35);
-        tone(t + 0.04, "sine", 170, 70, 0.2, env(t + 0.04, level * 0.5, 0.2, 0.02), 0.3);
+        // A soft wet slap and a sinking gloop (user: the old splash was a loud
+        // burst of white noise; it played on every bounce in the fountain).
+        const f = filter("bandpass", 1100, 2);
+        f.frequency.setValueAtTime(1100, t);
+        f.frequency.exponentialRampToValueAtTime(250, t + 0.2);
+        burst(t, f, env(t, level * 0.35, 0.18, 0.01), 0.25);
+        tone(t + 0.03, "sine", 160, 70, 0.18, env(t + 0.03, level * 0.45, 0.18, 0.02), 0.25);
         break;
       }
     }

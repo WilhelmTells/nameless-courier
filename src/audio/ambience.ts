@@ -1,6 +1,7 @@
 // The ambience (§7): wind that grows with height and swells with the gusts
 // the cape and the mist show, an electrical hum, distant machinery that
-// comes and goes, and now and then a far-off metallic sound. Inside a room
+// comes and goes, and now and then a deep metal groan far off (user: not
+// high-pitched; eerie). Inside a room
 // the wind is mostly shut out and the hum comes closer. The lightning stays
 // silent.
 
@@ -12,9 +13,11 @@ import type { Audio, Sound } from "./engine.ts";
 type Room = { min: Vec3; max: Vec3 };
 
 /** Peak loudness of each layer (before the ambience volume). */
-const LEVEL = { wind: 0.5, whistle: 0.07, hum: 0.025, machine: 0.12, metal: 0.18 };
-/** A far-off metallic sound every this many seconds. */
-const METAL_EVERY = [9, 26];
+const LEVEL = { wind: 0.36, whistle: 0.05, hum: 0.025, machine: 0.12, metal: 0.09 };
+/** A far-off metal groan every this many seconds. */
+const METAL_EVERY = [14, 34];
+/** A far-off clunk of machinery every this many seconds: irregular, so it never sounds like a beat. */
+const CLUNK_EVERY = [2.5, 7];
 
 const inside = (rooms: readonly Room[], p: Vec3) =>
   rooms.some((r) => p.x > r.min.x && p.x < r.max.x && p.y > r.min.y && p.y < r.max.y && p.z > r.min.z && p.z < r.max.z);
@@ -77,7 +80,7 @@ function build(a: Audio, rooms: readonly Room[]): (courier: Vec3, time: number) 
   }
   hum.connect(humGain).connect(a.ambience);
 
-  // Machinery, far off: a slow thump and a grinding whir, mostly heard through the reverb.
+  // Machinery, far off: irregular clunks and a grinding whir, mostly heard through the reverb.
   const machine = gain();
   const machineOut = filter("lowpass", 260);
   machine.connect(machineOut);
@@ -92,23 +95,23 @@ function build(a: Audio, rooms: readonly Room[]): (courier: Vec3, time: number) 
   const wobbleDepth = gain(0.2);
   whirWobble.connect(wobbleDepth).connect(whirGain.gain);
   whirWobble.start();
-  let nextThump = ctx.currentTime + 1;
-  const THUMP_EVERY = 1.9;
+  let nextClunk = ctx.currentTime + 2;
 
-  const thump = (t: number) => {
-    const o = ctx.createOscillator();
-    o.frequency.setValueAtTime(70, t);
-    o.frequency.exponentialRampToValueAtTime(38, t + 0.25);
+  /** A latch or a valve somewhere: a dull knock, sometimes with a second, softer one. */
+  const clunk = (t: number, level: number) => {
+    const n = ctx.createBufferSource();
+    n.buffer = a.noise;
+    const f = filter("bandpass", 180 + rnd() * 220, 2.5);
     const g = gain();
     g.gain.setValueAtTime(0, t);
-    g.gain.linearRampToValueAtTime(0.9, t + 0.01);
-    g.gain.exponentialRampToValueAtTime(0.001, t + 0.5);
-    o.connect(g).connect(machine);
-    o.start(t);
-    o.stop(t + 0.55);
+    g.gain.linearRampToValueAtTime(level, t + 0.005);
+    g.gain.exponentialRampToValueAtTime(0.001, t + 0.18);
+    n.connect(f).connect(g).connect(machine);
+    n.start(t, rnd() * 1.5, 0.2);
   };
 
-  // Far-off metal: a struck pipe or a girder, inharmonic partials ringing in the reverb.
+  // Far-off metal: a girder or a tank groaning under strain, low partials
+  // bending down, drowned in the reverb.
   const metalOut = gain(1);
   const metalPan = ctx.createStereoPanner();
   metalOut.connect(metalPan);
@@ -117,30 +120,44 @@ function build(a: Audio, rooms: readonly Room[]): (courier: Vec3, time: number) 
   metalPan.connect(a.reverb);
   let nextMetal = ctx.currentTime + 6;
 
-  const clank = (t: number, base: number, level: number) => {
-    for (const [ratio, v, decay] of [[1, 1, 1.6], [2.76, 0.5, 1.1], [5.4, 0.3, 0.6], [8.93, 0.15, 0.35]] as const) {
+  const groanTone = filter("lowpass", 700);
+  groanTone.connect(metalOut);
+  const groan = (t: number, base: number, level: number) => {
+    const length = 2.5 + rnd() * 2;
+    for (const [ratio, v] of [[1, 1], [2.76, 0.35], [5.4, 0.12]] as const) {
       const o = ctx.createOscillator();
-      o.frequency.value = base * ratio;
+      o.type = "triangle";
+      o.frequency.setValueAtTime(base * ratio, t);
+      o.frequency.exponentialRampToValueAtTime(base * ratio * 0.9, t + length);
       const g = gain();
+      // Swells in slowly, like strain building, then dies away.
       g.gain.setValueAtTime(0, t);
-      g.gain.linearRampToValueAtTime(level * v, t + 0.004);
-      g.gain.exponentialRampToValueAtTime(0.0005, t + decay);
-      o.connect(g).connect(metalOut);
+      g.gain.linearRampToValueAtTime(level * v, t + length * 0.35);
+      g.gain.exponentialRampToValueAtTime(0.0005, t + length);
+      o.connect(g).connect(groanTone);
       o.start(t);
-      o.stop(t + decay + 0.05);
+      o.stop(t + length + 0.05);
     }
   };
 
   const set = (p: AudioParam, v: number, smooth = 0.3) => p.setTargetAtTime(v, ctx.currentTime, smooth);
+  /** Indoors 0..1, eased: bouncing in and out of a doorway must not switch the wind on and off. */
+  let indoorAmount = 0;
+  let lastTime = 0;
 
   return (courier, time) => {
     const now = ctx.currentTime;
-    const indoors = inside(rooms, courier);
+    const dt = Math.min(0.1, Math.max(0, time - lastTime));
+    lastTime = time;
+    indoorAmount += ((inside(rooms, courier) ? 1 : 0) - indoorAmount) * Math.min(1, dt / 1.5);
+    const indoors = indoorAmount > 0.5;
     const strength = windStrength(time);
-    const w = windLevel(courier.y, strength, indoors);
-    set(windGain.gain, LEVEL.wind * w);
-    set(windBand.frequency, 260 + 520 * w);
-    set(windBody.frequency, indoors ? 220 : 380 + 900 * w);
+    const outside = windLevel(courier.y, strength, false);
+    const w = outside + (windLevel(courier.y, strength, true) - outside) * indoorAmount;
+    // Slow enough that a gust swells rather than jumps.
+    set(windGain.gain, LEVEL.wind * w, 0.8);
+    set(windBand.frequency, 260 + 520 * w, 0.8);
+    set(windBody.frequency, 380 + 900 * w * (1 - indoorAmount) - 160 * indoorAmount, 0.8);
     // The whistle only in strong wind, high up.
     set(whistleGain.gain, LEVEL.whistle * Math.max(0, w - 0.45) * 2);
     set(whistle.frequency, 1100 + 700 * strength, 0.6);
@@ -149,17 +166,15 @@ function build(a: Audio, rooms: readonly Room[]): (courier: Vec3, time: number) 
     // The machinery comes and goes over a few minutes.
     const swell = 0.5 + 0.5 * Math.sin(time * 0.043) * Math.sin(time * 0.017 + 1);
     set(machine.gain, LEVEL.machine * (0.25 + 0.75 * swell) * (indoors ? 1.5 : 1), 1);
-    while (nextThump < now + 0.2) {
-      thump(Math.max(nextThump, now));
-      nextThump += THUMP_EVERY * (rnd() < 0.15 ? 2 : 1);
+    if (now > nextClunk) {
+      clunk(now, 0.9);
+      if (rnd() < 0.4) clunk(now + 0.12 + rnd() * 0.2, 0.5);
+      nextClunk = now + CLUNK_EVERY[0] + rnd() * (CLUNK_EVERY[1] - CLUNK_EVERY[0]);
     }
 
     if (now > nextMetal) {
-      // Sometimes two or three, like something falling down a stairwell.
-      const hits = rnd() < 0.3 ? 2 + Math.floor(rnd() * 2) : 1;
-      const base = 180 + rnd() * 420;
       metalPan.pan.setValueAtTime(rnd() * 1.6 - 0.8, now);
-      for (let i = 0; i < hits; i++) clank(now + i * (0.25 + rnd() * 0.3), base * (1 - i * 0.06), LEVEL.metal * (1 - i * 0.25));
+      groan(now, 55 + rnd() * 50, LEVEL.metal);
       nextMetal = now + METAL_EVERY[0] + rnd() * (METAL_EVERY[1] - METAL_EVERY[0]);
     }
   };
