@@ -5,7 +5,7 @@
 export const OPENING_TIMING = { first: 1, gap: 3, hold: 4, fade: 2.5 };
 
 /** Ending: a moment at the summit, the screen darkens, the lines, then the run's stats. */
-export const ENDING_TIMING = { wait: 3, dark: 4, first: 1, gap: 3.5, stats: 3 };
+export const ENDING_TIMING = { wait: 6, dark: 4, first: 1, gap: 3.5, stats: 3 };
 
 export interface OpeningView {
   /** Lines shown. */

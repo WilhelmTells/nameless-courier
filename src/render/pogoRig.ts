@@ -10,6 +10,9 @@ const PARCEL_COLOR = 0xd9772b; // faded signal orange, used on nothing else: the
 /** Standing pose: the rider steps down off the pegs and beside the staff, holding it. */
 const STAND_OFFSET = new THREE.Vector3(-0.35, -0.31, 0);
 
+/** Sitting on the ground (the end of the climb): the rider sinks this far below standing. */
+const SIT_DROP = 0.47;
+
 /** The rider stands just behind the shaft. */
 const RIDER_Z = 0.1;
 
@@ -26,6 +29,11 @@ export interface PogoRig {
   /** Blends the rider from riding (0) to standing beside the staff (1). */
   setStand(amount: number): void;
   /**
+   * Blends the standing rider (0) to sitting on the ground, knees up, with
+   * the staff laid down beside them (1). Only used at the summit.
+   */
+  setSit(amount: number): void;
+  /**
    * Moves the cape's hem by `trail` (rig space, m), the swing of the hem
    * against the body; `time` and `speed` (m/s) make the ragged edge flutter.
    */
@@ -36,6 +44,9 @@ export function createPogoRig(): PogoRig {
   const group = new THREE.Group();
   const rider = new THREE.Group();
   group.add(rider);
+  // The staff turns about its tip to lie on the ground when the rider sits.
+  const staff = new THREE.Group();
+  group.add(staff);
 
   const iron = new THREE.MeshLambertMaterial({ color: 0x2a2c30 });
   const brass = new THREE.MeshLambertMaterial({ color: 0x9a7a44 });
@@ -57,26 +68,42 @@ export function createPogoRig(): PogoRig {
 
   // Staff: iron tip, a brass spring, the iron shaft with brass rings, foot
   // pegs, the grip, and a brass knob on top.
-  add(group, new THREE.ConeGeometry(0.03, 0.08, 8).rotateX(Math.PI), iron, 0, 0.04, 0);
+  add(staff, new THREE.ConeGeometry(0.03, 0.08, 8).rotateX(Math.PI), iron, 0, 0.04, 0);
   // The spring: seven turns, 12 points a turn.
   const coil = Array.from({ length: 85 }, (_, i) => {
     const t = i / 84;
     const a = t * Math.PI * 2 * 7;
     return new THREE.Vector3(Math.cos(a) * 0.042, 0.08 + t * 0.26, Math.sin(a) * 0.042);
   });
-  add(group, new THREE.TubeGeometry(new THREE.CatmullRomCurve3(coil), 84, 0.008, 4), brass, 0, 0, 0);
-  add(group, new THREE.CylinderGeometry(0.014, 0.014, 0.3, 6), iron, 0, 0.21, 0);
-  add(group, new THREE.CylinderGeometry(0.022, 0.022, 1.18, 8), iron, 0, 0.93, 0);
-  for (const y of [0.35, 0.62, 0.98]) add(group, new THREE.CylinderGeometry(0.03, 0.03, 0.035, 8), brass, 0, y, 0);
-  add(group, new THREE.BoxGeometry(0.4, 0.025, 0.06), iron, 0, 0.35, 0.03);
-  add(group, new THREE.BoxGeometry(0.44, 0.03, 0.03), iron, 0, 1.25, 0);
-  for (const x of [-0.24, 0.24]) add(group, new THREE.CylinderGeometry(0.02, 0.02, 0.06, 6).rotateZ(Math.PI / 2), brass, x, 1.25, 0);
-  add(group, new THREE.SphereGeometry(0.04, 8, 6), brass, 0, 1.54, 0);
+  add(staff, new THREE.TubeGeometry(new THREE.CatmullRomCurve3(coil), 84, 0.008, 4), brass, 0, 0, 0);
+  add(staff, new THREE.CylinderGeometry(0.014, 0.014, 0.3, 6), iron, 0, 0.21, 0);
+  add(staff, new THREE.CylinderGeometry(0.022, 0.022, 1.18, 8), iron, 0, 0.93, 0);
+  for (const y of [0.35, 0.62, 0.98]) add(staff, new THREE.CylinderGeometry(0.03, 0.03, 0.035, 8), brass, 0, y, 0);
+  add(staff, new THREE.BoxGeometry(0.4, 0.025, 0.06), iron, 0, 0.35, 0.03);
+  add(staff, new THREE.BoxGeometry(0.44, 0.03, 0.03), iron, 0, 1.25, 0);
+  for (const x of [-0.24, 0.24]) add(staff, new THREE.CylinderGeometry(0.02, 0.02, 0.06, 6).rotateZ(Math.PI / 2), brass, x, 1.25, 0);
+  add(staff, new THREE.SphereGeometry(0.04, 8, 6), brass, 0, 1.54, 0);
 
   // Rider: boots on the pegs, trousers, coat, a head in shadow under the cap.
+  const legs = new THREE.Group();
+  rider.add(legs);
   for (const x of [-0.1, 0.1]) {
-    add(rider, new THREE.BoxGeometry(0.12, 0.22, 0.2), boots, x, 0.47, RIDER_Z - 0.02);
-    add(rider, new THREE.CapsuleGeometry(0.085, 0.3, 4, 8), trousers, x, 0.74, RIDER_Z);
+    add(legs, new THREE.BoxGeometry(0.12, 0.22, 0.2), boots, x, 0.47, RIDER_Z - 0.02);
+    add(legs, new THREE.CapsuleGeometry(0.085, 0.3, 4, 8), trousers, x, 0.74, RIDER_Z);
+  }
+  // Sitting legs: thighs rising to the knees in front, shins down to the boots.
+  const sittingLegs = new THREE.Group();
+  sittingLegs.visible = false;
+  rider.add(sittingLegs);
+  // In the rider's frame the seat (hip) is at 0.86, the knees 0.34 higher and
+  // in front, the boots back down on the ground.
+  const hipY = 0.86;
+  for (const x of [-0.11, 0.11]) {
+    const thigh = add(sittingLegs, new THREE.CapsuleGeometry(0.085, 0.3, 4, 8), trousers, x, hipY + 0.17, RIDER_Z - 0.19);
+    thigh.rotation.x = -0.84;
+    const shin = add(sittingLegs, new THREE.CapsuleGeometry(0.08, 0.2, 4, 8), trousers, x, hipY + 0.17, RIDER_Z - 0.42);
+    shin.rotation.x = 0.23;
+    add(sittingLegs, new THREE.BoxGeometry(0.12, 0.12, 0.22), boots, x, hipY - 0.02, RIDER_Z - 0.5);
   }
   add(rider, new THREE.CapsuleGeometry(0.19, 0.36, 4, 10), coat, 0, 1.2, RIDER_Z);
   add(rider, new THREE.CylinderGeometry(0.11, 0.15, 0.12, 8), coat, 0, 1.47, RIDER_Z);
@@ -124,11 +151,28 @@ export function createPogoRig(): PogoRig {
   cape.frustumCulled = false;
   rider.add(cape);
 
+  let stand = 0;
+  let sit = 0;
+  const place = () => {
+    rider.position.copy(STAND_OFFSET).multiplyScalar(stand);
+    rider.position.y -= SIT_DROP * sit;
+    // The legs fold over halfway down.
+    legs.visible = sit < 0.5;
+    sittingLegs.visible = sit >= 0.5;
+    // Lean back a little, and lay the staff down on the far side.
+    rider.rotation.x = 0.12 * sit;
+    staff.rotation.z = -(Math.PI / 2) * sit;
+  };
+
   return {
     group,
     setStand(amount) {
-      const t = amount * amount * (3 - 2 * amount); // smoothstep
-      rider.position.copy(STAND_OFFSET).multiplyScalar(t);
+      stand = amount * amount * (3 - 2 * amount); // smoothstep
+      place();
+    },
+    setSit(amount) {
+      sit = amount * amount * (3 - 2 * amount);
+      place();
     },
     setCape(trail, time, speed) {
       // The hem never swings into the body: forward swings are mostly held back.

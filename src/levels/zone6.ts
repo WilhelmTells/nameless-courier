@@ -119,5 +119,7 @@ export const zone6: Zone = {
   ],
   // The club one last time, inside tower E under its roof.
   clubs: [{ x: -26, y: 112, z: -102 }],
-  figures: [{ id: "waiting", pos: { x: 20.4, y: SUMMIT, z: -98 }, facing: -90, pose: "hood" }],
+  // The one who waits stands on the crown, the last calm spot, looking across
+  // the drop at the empty summit (user: the courier is alone at the top).
+  figures: [{ id: "waiting", pos: { x: -9.5, y: CROWN, z: -96.4 }, facing: -90, pose: "hood" }],
 };

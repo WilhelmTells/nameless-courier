@@ -274,6 +274,7 @@ async function boot(): Promise<void> {
   const showRideHint = () => {
     const r = pogo.ride;
     const text =
+      mode === "ending" ? "" :
       performance.now() / 1000 < flash.until ? flash.text :
       r.phase === "standing" ? "E: get on" :
       r.phase === "riding" && pogo.inRestSpot() ? (r.requested ? "getting off…" : "E: get off") : "";
@@ -576,6 +577,9 @@ async function boot(): Promise<void> {
   const rider = new THREE.Vector3();
   let accumulator = 0;
   let lastTime = performance.now();
+  /** How far the courier has sat down at the summit, 0..1. */
+  let sitAmount = 0;
+  const SIT_TIME = 1.6;
 
   renderer.setAnimationLoop((time: number) => {
     const frameDt = (time - lastTime) / 1000;
@@ -675,6 +679,9 @@ async function boot(): Promise<void> {
       .setFromUnitVectors(up, axis.set(s.x, s.y, s.z))
       .multiply(facingTurn.setFromAxisAngle(up, facing));
     rig.setStand(standAmount(pogo.ride, pogoConfig));
+    // At the top the courier gets off, lays the staff down and sits (user).
+    sitAmount = mode === "ending" && pogo.ride.phase === "standing" ? Math.min(1, sitAmount + Math.max(0, frameDt) / SIT_TIME) : 0;
+    rig.setSit(sitAmount);
     // The hem's swing, from world space into the rig's.
     const capeRest = restOffset(pogoConfig.gravity, capeConfig());
     capeTrail
