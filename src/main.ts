@@ -461,19 +461,12 @@ async function boot(): Promise<void> {
     if (!e.repeat) skip();
   });
   window.addEventListener("mousedown", skip);
-  // First a plain screen with the name: its click also starts the sound
-  // (browsers only allow audio after a gesture), so the title song plays
-  // under the menu.
+  // First a plain screen with the name and Play (user): that click also
+  // starts the sound (browsers only allow audio after a gesture), so the
+  // title song plays under the menu that follows.
   const showSplash = () => {
     hud.hidden = true;
-    screens.splash(TITLE.replace(" of ", "\nof "), "click to begin");
-    const begin = () => {
-      window.removeEventListener("click", begin);
-      window.removeEventListener("keydown", begin);
-      showTitle();
-    };
-    window.addEventListener("click", begin);
-    window.addEventListener("keydown", begin);
+    screens.splash(TITLE.replace(" of ", "\nof "), [{ label: "Play", action: showTitle }]);
   };
   if (mode === "title") showSplash();
 

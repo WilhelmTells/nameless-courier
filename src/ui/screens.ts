@@ -64,12 +64,12 @@ export class Screens {
     this.root.style.opacity = String(opacity);
   }
 
-  /** The opening screen: the name, large, and a quiet hint under it. */
-  splash(name: string, hint: string): void {
+  /** The first screen: the name, large, and a menu under it. */
+  splash(name: string, items: MenuItem[]): void {
     this.show(0.78);
     this.root.classList.add("splash");
     this.heading.textContent = name;
-    this.info.textContent = hint;
+    this.setMenu(items);
   }
 
   /** The title and a menu. */

@@ -110,16 +110,9 @@ body {
   white-space: pre-line;
 }
 
-#screen.splash #screen-info {
-  text-align: center;
-  opacity: 0.55;
-  animation: breathe 3s ease-in-out infinite;
-}
-
-@keyframes breathe {
-  50% {
-    opacity: 0.25;
-  }
+#screen.splash #screen-menu button {
+  padding: 6px 32px;
+  letter-spacing: 0.1em;
 }
 
 #screen-heading:empty,
